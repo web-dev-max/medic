@@ -1,0 +1,10 @@
+{
+  "$schema": "../../node_modules/nest-cli/schema.json",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "tsconfig.json"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "medikom-plus",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Современный сайт компании Медиком Плюс",
+  "scripts": {
+    "dev:frontend": "pnpm --filter @medikom/frontend dev",
+    "dev:backend": "pnpm --filter @medikom/backend dev",
+    "dev": "pnpm --parallel --filter @medikom/frontend --filter @medikom/backend dev",
+    "build:frontend": "pnpm --filter @medikom/frontend build",
+    "build:backend": "pnpm --filter @medikom/backend build",
+    "build": "pnpm --recursive build",
+    "lint": "pnpm --recursive lint",
+    "typecheck": "pnpm --recursive typecheck"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "mysql2": "^3.24.5"
+  }
+}
