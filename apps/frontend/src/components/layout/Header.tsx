@@ -135,7 +135,7 @@ export function Header() {
       </div>
 
       {/* Navigation */}
-      <div className="border-t border-border">
+      <div className="hidden border-t border-border md:block">
         <div className="container">
           <div className="flex items-center gap-1 overflow-x-auto py-2 md:justify-start">
             {/* Catalog button */}

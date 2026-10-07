@@ -7,8 +7,8 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#0097A7',
-          dark: '#006064',
+          DEFAULT: '#007B8D',
+          dark: '#005F6B',
           light: '#E8F4F8',
         },
         background: {
@@ -24,6 +24,9 @@ module.exports = {
         footer: {
           bg: '#0A3D4A',
           text: '#B0C4D0',
+        },
+        warranty: {
+          bg: '#0A5A6B',
         },
         success: '#38A169',
         error: '#E53E3E',

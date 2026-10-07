@@ -56,14 +56,14 @@ export function ContactsSection() {
 
           {/* Map placeholder */}
           <div className="relative rounded-xl overflow-hidden bg-background-alt h-[400px] lg:h-auto">
-            <iframe
-              src="https://yandex.ru/map-widget/v1/?ll=38.9753%2C45.0355&z=13&pt=38.9753,45.0355/pm/roundpoint"
+           <iframe
+              src="https://yandex.ru/map-widget/v1/?ll=39.095725%2C45.01532&z=16&pt=39.095725,45.01532/pm/roundpoint"
               width="100%"
               height="100%"
               frameBorder="0"
               allowFullScreen
               className="absolute inset-0"
-              title="Карта"
+              title="Карта: Краснодар, ул. им. Мачуги В.Н., 171/1"
             />
           </div>
         </div>

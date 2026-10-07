@@ -32,7 +32,7 @@ const advantages = [
 
 export function AdvantagesSection() {
   return (
-    <section className="section bg-background-alt">
+    <section className="section">
       <div className="container">
         <h2 className="mb-10 text-left text-2xl font-bold text-text-primary md:text-3xl">
           Почему выбирают МедикомПлюс
@@ -44,7 +44,7 @@ export function AdvantagesSection() {
             return (
               <div
                 key={index}
-                className="flex flex-col items-center rounded-xl bg-white p-6 text-center shadow-sm transition-shadow hover:shadow-md"
+                className="flex flex-col items-center rounded-xl bg-[rgb(232_244_248_/_0.2)] p-6 text-center shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-light">
                   <Icon className="h-7 w-7 text-primary" />

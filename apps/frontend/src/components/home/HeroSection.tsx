@@ -110,7 +110,7 @@ export function HeroSection() {
               НАДЕЖНЫЙ ПАРТНЕР ДЛЯ ВАШЕЙ КЛИНИКИ
             </p>
             <h1 className="text-3xl font-bold leading-tight text-text-primary md:text-4xl lg:text-5xl">
-              Медицинское и стоматологическое оборудование
+              Стоматологическое и медицинское оборудование
             </h1>
             <p className="max-w-lg text-base text-text-secondary md:text-lg">
               Поставляем современное оборудование для клиник, стоматологий и

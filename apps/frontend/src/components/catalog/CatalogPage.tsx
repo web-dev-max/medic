@@ -169,7 +169,7 @@ function CatalogPageContent({ categoryId, search }: CatalogPageProps) {
 
           {/* Products */}
           <div className="flex-1 min-w-0">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
               <h1 className="text-2xl font-bold text-text-primary">
                 {urlSearch ? `Результаты поиска: "${urlSearch}"` : categoryId ? 'Товары' : 'Каталог оборудования'}
               </h1>

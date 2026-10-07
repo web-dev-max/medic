@@ -53,7 +53,7 @@ export function CategoryGrid() {
   return (
     <section className="section">
       <div className="container">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-col items-start gap-3 md:flex-row md:items-center md:justify-between md:gap-0">
           <h2 className="text-2xl font-bold text-text-primary md:text-3xl">
             Каталог оборудования
           </h2>
@@ -71,10 +71,10 @@ export function CategoryGrid() {
             <Link
               key={category.id}
               href={`/catalog?categoryId=${category.id}`}
-              className="group flex flex-col items-center rounded-xl bg-white p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+              className="group flex flex-col items-center rounded-xl bg-[rgb(232_244_248_/_0.2)] p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
             >
               {/* Category Image from DB */}
-              <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-lg bg-background-alt p-2 overflow-hidden">
+              <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-lg bg-[rgb(232_244_248_/_0.2)] p-2 overflow-hidden">
                 {category.image ? (
                   <Image
                     src={category.image}
@@ -92,10 +92,10 @@ export function CategoryGrid() {
                   <div className="h-12 w-12 rounded bg-primary/10" />
                 )}
               </div>
-              <span className="text-center text-sm font-medium text-text-secondary group-hover:text-primary transition-colors">
+              <span className="text-center text-sm flex items-center gap-4 font-medium text-text-secondary group-hover:text-primary transition-colors">
                 {category.name}
+                <ArrowRight className="mt-1 h-3.5 w-3.5 text-primary opacity-70 transition-opacity group-hover:opacity-100" />
               </span>
-              <ArrowRight className="mt-1 h-3.5 w-3.5 text-primary opacity-0 transition-opacity group-hover:opacity-100" />
             </Link>
           ))}
         </div>

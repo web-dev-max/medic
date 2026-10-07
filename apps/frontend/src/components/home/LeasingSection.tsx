@@ -8,7 +8,7 @@ export function LeasingSection() {
   return (
     <section className="section">
       <div className="container">
-        <div className="relative overflow-hidden rounded-xl bg-primary-light p-8">
+        <div className="relative overflow-hidden rounded-xl bg-[rgb(232_244_248_/_0.2)] p-8">
           <div className="grid items-center gap-6 md:grid-cols-2">
             <div className="flex items-center gap-6">
               <div className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/20 lg:flex">
@@ -26,21 +26,10 @@ export function LeasingSection() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-4">
-              <Link href="/leasing" className="btn btn-outline shrink-0 hidden sm:inline-flex">
-                Рассчитать лизинг
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-              <div className="relative hidden h-24 w-32 shrink-0 overflow-hidden rounded-lg md:block">
-                <Image
-                  src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=300&q=80"
-                  alt="Лизинг медицинского оборудования"
-                  fill
-                  sizes="200px"
-                  className="object-cover rounded-lg"
-                />
-              </div>
-            </div>
+            <Link href="/leasing" className="btn btn-outline shrink-0 sm:inline-flex">
+              Рассчитать лизинг
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </div>
         </div>
       </div>

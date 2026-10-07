@@ -1,7 +1,3 @@
-/**
- * Medikom Plus — Современный сайт медицинского оборудования
- */
-
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -32,6 +28,13 @@ export const metadata: Metadata = {
     'Медиком Плюс',
     'Краснодар',
   ],
+  icons: {
+    icon: [
+      { url: '/logo_medic.png', type: 'image/png' },
+    ],
+    shortcut: '/logo_medic.png',
+    apple: '/logo_medic.png',
+  },
   alternates: {
     canonical: 'https://medikomplus.ru',
   },
@@ -44,8 +47,7 @@ export const metadata: Metadata = {
       'Поставки современного медицинского и стоматологического оборудования для клиник, стоматологий и лабораторий.',
     images: [
       {
-        url: '/og-image.jpg',
-        width: 1200,
+        url: '/logo_medic.png',
         height: 630,
         alt: 'Медиком Плюс',
       },
