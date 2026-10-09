@@ -4,7 +4,7 @@ import { ProductQueryDto } from './product.query.dto';
 
 @Injectable()
 export class ProductsService {
-  private readonly IMAGE_BASE_URL = process.env.IMAGE_BASE_URL || 'https://medikomplus.ru';
+  private readonly IMAGE_BASE_URL = process.env.IMAGE_BASE_URL || '/uploads/images';
 
   constructor(private readonly dataSource: DataSource) {}
 
@@ -303,8 +303,20 @@ export class ProductsService {
 
   private convertToAbsoluteUrl(relativePath: string): string {
     if (!relativePath) return '';
-    if (relativePath.startsWith('http')) return relativePath;
-    return `${this.IMAGE_BASE_URL}/${relativePath}`;
+    
+    // If already a full URL (http/https), return as-is
+    if (relativePath.startsWith('http')) {
+      return relativePath;
+    }
+    
+    // If already starts with /uploads/, return as-is (local path)
+    if (relativePath.startsWith('/uploads/')) {
+      return relativePath;
+    }
+    
+    // Relative path - prepend base URL
+    const cleanPath = relativePath.startsWith('/') ? relativePath : '/' + relativePath;
+    return `${this.IMAGE_BASE_URL}${cleanPath}`;
   }
 
   /**

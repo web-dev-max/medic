@@ -5,7 +5,7 @@ import { SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 
-interface FilterState {
+export interface FilterState {
   minPrice: string;
   maxPrice: string;
   brandId: string;

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCategories } from '@/lib/api/hooks';
 
@@ -26,7 +27,7 @@ export function Footer() {
 
   const infoLinks = [
     { label: 'О компании', href: '/about' },
-    { label: 'Реквизиты', href: '/about' },
+//     { label: 'Реквизиты', href: '/about' },
   ];
 
   return (
@@ -35,14 +36,22 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           {/* Logo & description */}
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+            <div className="bg-[rgb(255_255_255_/_1)] rounded-sm shadow-smrelative flex items-center gap-2 mb-4">
+              {/* <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
                 <span className="text-lg font-bold text-white">M</span>
               </div>
               <div>
                 <div className="text-lg font-bold text-white">МедикомПлюс</div>
                 <div className="text-xs text-footer-text">Медицинское оборудование</div>
-              </div>
+              </div> */}
+              <Image
+                src="/logo_medic.png"
+                alt="МедикомПлюс — медицинское оборудование"
+                width={300}
+                height={300}
+                className="object-contain object-left"
+                priority
+              />
             </div>
             <p className="text-sm text-footer-text/80 mb-4">
               Современные решения для здоровья людей
@@ -118,6 +127,11 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link href="/privacy-policy" className="text-sm text-footer-text/80 hover:text-white transition-colors">
+                  Политика обработки персональных данных
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

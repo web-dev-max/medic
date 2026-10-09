@@ -7,6 +7,7 @@ import { FormPhoneInput, isPhoneValid, getPhoneForApi } from '@/components/ui/Fo
 import { apiClient } from '@/lib/api/client';
 import { CheckCircle, Paperclip, X } from 'lucide-react';
 import { isEmpty } from '@/lib/validators';
+import { ConsentCheckbox } from '@/components/ui/ConsentCheckbox';
 
 interface ServiceFormData {
   name: string;
@@ -27,6 +28,7 @@ const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
 export function ServiceForm() {
   const [formState, setFormState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [consentGiven, setConsentGiven] = useState(false);
   const [formData, setFormData] = useState<ServiceFormData>({
     name: '',
     phone: '',
@@ -90,6 +92,11 @@ export function ServiceForm() {
       if (formData.photo.size > MAX_PHOTO_SIZE) {
         newErrors.photo = 'Размер файла не должен превышать 5 МБ';
       }
+    }
+
+    // Consent validation (required)
+    if (!consentGiven) {
+      newErrors.consent = 'Необходимо дать согласие на обработку персональных данных';
     }
 
     setErrors(newErrors);
@@ -169,9 +176,7 @@ export function ServiceForm() {
         model: formData.model,
         serialNumber: formData.serialNumber,
         problemDescription: formData.problemDescription,
-        // Note: file upload would need multipart/form-data support
-        // For now, we pass photo name if exists
-        file: formData.photo ? formData.photo.name : undefined,
+        photo: formData.photo,
       };
 
       await apiClient.submitServiceRequest(apiData);
@@ -370,6 +375,21 @@ export function ServiceForm() {
           <Button type="submit" disabled={formState === 'loading'}>
             {formState === 'loading' ? 'Отправка...' : 'Отправить заявку'}
           </Button>
+
+          <ConsentCheckbox
+            checked={consentGiven}
+            onChange={(checked) => {
+              setConsentGiven(checked);
+              if (errors.consent) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.consent;
+                  return newErrors;
+                });
+              }
+            }}
+            error={errors.consent}
+          />
         </form>
       )}
     </div>

@@ -1,5 +1,6 @@
-import { IsString, IsEmail, IsOptional, IsNotEmpty } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsEmail, IsOptional, IsNotEmpty, IsNumber, IsArray, ValidateNested } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CallbackRequestDto {
   @ApiProperty({ example: 'Иван Иванов' })
@@ -11,6 +12,15 @@ export class CallbackRequestDto {
   @IsString()
   @IsNotEmpty()
   phone: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @IsString()
+  website?: string; // honeypot field
+
+  @ApiProperty({ example: true })
+  @IsNotEmpty()
+  consent: boolean; // PD consent
 }
 
 export class ProductRequestDto {
@@ -42,6 +52,15 @@ export class ProductRequestDto {
   @IsOptional()
   @IsString()
   comment?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @IsString()
+  website?: string; // honeypot field
+
+  @ApiProperty({ example: true })
+  @IsNotEmpty()
+  consent: boolean; // PD consent
 }
 
 export class ServiceRequestDto {
@@ -85,10 +104,14 @@ export class ServiceRequestDto {
   @IsString()
   problemDescription: string;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional({ example: '' })
   @IsOptional()
   @IsString()
-  file?: string;
+  website?: string; // honeypot field
+
+  @ApiProperty({ example: true })
+  @IsNotEmpty()
+  consent: boolean; // PD consent
 }
 
 export class GeneralRequestDto {
@@ -109,6 +132,33 @@ export class GeneralRequestDto {
   @ApiProperty({ example: 'Вопрос о сотрудничестве' })
   @IsString()
   message: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @IsString()
+  website?: string; // honeypot field
+
+  @ApiProperty({ example: true })
+  @IsNotEmpty()
+  consent: boolean; // PD consent
+}
+
+export class CartItemDto {
+  @ApiProperty({ example: 1 })
+  @IsNumber()
+  productId: number;
+
+  @ApiProperty({ example: 'Товар' })
+  @IsString()
+  productName: string;
+
+  @ApiProperty({ example: 10000 })
+  @IsNumber()
+  price: number;
+
+  @ApiProperty({ example: 2 })
+  @IsNumber()
+  quantity: number;
 }
 
 export class CartRequestDto {
@@ -126,11 +176,93 @@ export class CartRequestDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ type: [Object] })
-  items: Array<{ productId: number; productName: string; price: number; quantity: number }>;
+  @ApiProperty({ type: [CartItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CartItemDto)
+  items: CartItemDto[];
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
   comment?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @IsString()
+  website?: string; // honeypot field
+
+  @ApiProperty({ example: true })
+  @IsNotEmpty()
+  consent: boolean; // PD consent
+}
+
+export class LeasingRequestDto {
+  @ApiProperty({ example: 'Иван Иванов' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: '+7 (918) 417-17-77' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ example: 'ivan@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  message?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @IsString()
+  website?: string; // honeypot field
+
+  @ApiProperty({ example: true })
+  @IsNotEmpty()
+  consent: boolean; // PD consent
+}
+
+export class PriceInquiryRequestDto {
+  @ApiProperty({ example: 'Иван Иванов' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ example: '+7 (918) 417-17-77' })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ example: 'ivan@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  productName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  comment?: string;
+
+  @ApiPropertyOptional({ example: '' })
+  @IsOptional()
+  @IsString()
+  website?: string; // honeypot field
+
+  @ApiProperty({ example: true })
+  @IsNotEmpty()
+  consent: boolean; // PD consent
 }

@@ -7,9 +7,10 @@ import { FormPhoneInput, isPhoneValid, getPhoneForApi } from '@/components/ui/Fo
 import { apiClient } from '@/lib/api/client';
 import { Trash2, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { ImageWithPlaceholder } from '@/components/ui/ImageWithPlaceholder';
 import { useCartStore } from '@/stores/cartStore';
-import Image from 'next/image';
 import { isEmpty } from '@/lib/validators';
+import { ConsentCheckbox } from '@/components/ui/ConsentCheckbox';
 
 export function CartContent() {
   const items = useCartStore((state) => state.items);
@@ -25,6 +26,7 @@ export function CartContent() {
   });
   const [formState, setFormState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [consentGiven, setConsentGiven] = useState(false);
 
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -57,6 +59,11 @@ export function CartContent() {
       newErrors.email = 'Email обязателен для заполнения';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Введите корректный адрес электронной почты';
+    }
+
+    // Consent validation (required)
+    if (!consentGiven) {
+      newErrors.consent = 'Необходимо дать согласие на обработку персональных данных';
     }
 
     setErrors(newErrors);
@@ -101,7 +108,10 @@ export function CartContent() {
         })),
       });
       setFormState('success');
-      clearCart();
+      // Clear cart after showing success modal for 5 seconds
+      setTimeout(() => {
+        clearCart();
+      }, 5000);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка отправки';
       
@@ -142,18 +152,12 @@ export function CartContent() {
                   href={`/product/${item.slug}`}
                   className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-background-alt"
                 >
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className="object-contain p-2"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <div className="h-10 w-10 rounded-full bg-border/50" />
-                    </div>
-                  )}
+                  <ImageWithPlaceholder
+                    src={item.image}
+                    alt={item.name}
+                    fill
+                    className="object-contain p-2"
+                  />
                 </Link>
 
                 <div className="flex flex-1 flex-col">
@@ -296,6 +300,21 @@ export function CartContent() {
                 >
                   {formState === 'loading' ? 'Отправка...' : 'Отправить заявку'}
                 </Button>
+
+                <ConsentCheckbox
+                  checked={consentGiven}
+                  onChange={(checked) => {
+                    setConsentGiven(checked);
+                    if (errors.consent) {
+                      setErrors((prev) => {
+                        const newErrors = { ...prev };
+                        delete newErrors.consent;
+                        return newErrors;
+                      });
+                    }
+                  }}
+                  error={errors.consent}
+                />
               </form>
             )}
           </div>

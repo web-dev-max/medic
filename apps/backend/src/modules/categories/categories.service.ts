@@ -36,15 +36,21 @@ export class CategoriesService {
       .addOrderBy('c.ordering', 'ASC')
       .getRawMany();
 
-    const imageBaseUrl = this.configService.get<string>('IMAGE_BASE_URL');
+    const imageBaseUrl = this.configService.get<string>('IMAGE_BASE_URL') || '/uploads/images';
 
     // Convert relative path to absolute URL and deduplicate by category ID
     const uniqueCategories = new Map<number, any>();
     for (const c of categories) {
       if (!uniqueCategories.has(c.id)) {
         let image = c.image || null;
-        if (image && imageBaseUrl && !image.startsWith('http')) {
-          image = imageBaseUrl + '/' + image.replace(/^\//, '');
+        if (image && imageBaseUrl) {
+          // If already absolute URL or local uploads path, use as-is
+          if (image.startsWith('http') || image.startsWith('/uploads/')) {
+            // Keep as-is
+          } else {
+            // Relative path - prepend base URL
+            image = imageBaseUrl + '/' + image.replace(/^\//, '');
+          }
         }
         uniqueCategories.set(c.id, {
           id: Number(c.id),
@@ -84,12 +90,12 @@ export class CategoriesService {
       .addOrderBy('c.ordering', 'ASC')
       .getRawMany();
 
-    const imageBaseUrl = this.configService.get<string>('IMAGE_BASE_URL');
+    const imageBaseUrl = this.configService.get<string>('IMAGE_BASE_URL') || '/uploads/images';
 
     return categories.map((c) => {
       let image = c.image || null;
       // Convert relative path to absolute URL
-      if (image && imageBaseUrl && !image.startsWith('http')) {
+      if (image && imageBaseUrl && !image.startsWith('http') && !image.startsWith('/uploads/')) {
         image = imageBaseUrl + '/' + image.replace(/^\//, '');
       }
 

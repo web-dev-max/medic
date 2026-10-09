@@ -10,11 +10,13 @@ import { CONTACT_INFO } from '@/lib/constants';
 import { useCartStore } from '@/stores/cartStore';
 import { SearchAutocomplete } from '../catalog/SearchAutocomplete';
 import { apiClient } from '@/lib/api/client';
+import { ConsentCheckbox } from '@/components/ui/ConsentCheckbox';
 
 export function Header() {
   const [isMounted, setIsMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [callbackModalOpen, setCallbackModalOpen] = useState(false);
+  const [callbackConsentGiven, setCallbackConsentGiven] = useState(false);
   const pathname = usePathname();
   const isCartPage = pathname === '/cart';
   const totalItems = useCartStore((state) => state.totalItems());
@@ -216,9 +218,16 @@ export function Header() {
                 const formData = new FormData(e.currentTarget);
                 const name = formData.get('name') as string;
                 const phone = formData.get('phone') as string;
+                
+                if (!callbackConsentGiven) {
+                  return;
+                }
+                
                 try {
-                  await apiClient.submitGeneralRequest({ name, phone, email: '', message: '' });
+                  await apiClient.submitCallback({ name, phone });
                   setCallbackModalOpen(false);
+                  setCallbackConsentGiven(false);
+                  setTimeout(() => setCallbackModalOpen(false), 5000);
                 } catch {
                   alert('Ошибка отправки. Пожалуйста, позвоните нам.');
                 }
@@ -242,6 +251,11 @@ export function Header() {
               <Button type="submit" className="w-full">
                 Перезвоните мне
               </Button>
+              
+              <ConsentCheckbox
+                checked={callbackConsentGiven}
+                onChange={setCallbackConsentGiven}
+              />
             </form>
             <p className="mt-3 text-xs text-text-muted">
               Или позвоните: {CONTACT_INFO.phones.map((p, i) => <span key={i}>{i > 0 ? ' / ' : ''}{p}</span>)}

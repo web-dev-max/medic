@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Search, X } from 'lucide-react';
-import Image from 'next/image';
 import { useSearchProducts } from '@/lib/api/hooks';
 import { debounce } from '@/lib/utils';
+import { ImageWithPlaceholder } from '@/components/ui/ImageWithPlaceholder';
 
 interface SearchProduct {
   id: number;
@@ -182,17 +182,13 @@ export function SearchAutocomplete() {
                 >
                   {/* Product Image */}
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-background-alt overflow-hidden">
-                    {product.images && product.images.length > 0 && product.images[0]?.file_url ? (
-                      <Image
-                        src={product.images[0].file_url}
-                        alt={product.name}
-                        width={48}
-                        height={48}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <div className="h-8 w-8 rounded-full bg-border/50" />
-                    )}
+                    <ImageWithPlaceholder
+                      src={product.images && product.images.length > 0 ? product.images[0].file_url : null}
+                      alt={product.name}
+                      width={48}
+                      height={48}
+                      className="h-full w-full object-contain"
+                    />
                   </div>
 
                   {/* Product Info */}

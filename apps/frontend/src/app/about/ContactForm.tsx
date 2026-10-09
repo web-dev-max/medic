@@ -7,10 +7,12 @@ import { FormPhoneInput, isPhoneValid, getPhoneForApi } from '@/components/ui/Fo
 import { apiClient } from '@/lib/api/client';
 import { CheckCircle } from 'lucide-react';
 import { requiredField, emailValidator, isEmpty } from '@/lib/validators';
+import { ConsentCheckbox } from '@/components/ui/ConsentCheckbox';
 
 export function ContactForm() {
   const [formState, setFormState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [consentGiven, setConsentGiven] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -42,6 +44,11 @@ export function ContactForm() {
     // Message validation (required)
     const messageError = requiredField().validate(formData.message);
     if (messageError) newErrors.message = messageError;
+
+    // Consent validation (required)
+    if (!consentGiven) {
+      newErrors.consent = 'Необходимо дать согласие на обработку персональных данных';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -158,6 +165,21 @@ export function ContactForm() {
           <Button type="submit" disabled={formState === 'loading'}>
             {formState === 'loading' ? 'Отправка...' : 'Отправить'}
           </Button>
+
+          <ConsentCheckbox
+            checked={consentGiven}
+            onChange={(checked) => {
+              setConsentGiven(checked);
+              if (errors.consent) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.consent;
+                  return newErrors;
+                });
+              }
+            }}
+            error={errors.consent}
+          />
         </form>
       )}
     </div>

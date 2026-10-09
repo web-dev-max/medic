@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '../ui/Button';
-import Image from 'next/image';
+import { ImageWithPlaceholder } from '../ui/ImageWithPlaceholder';
 import { useCartStore } from '@/stores/cartStore';
 import { useToast } from '../ui/ToastProvider';
 
@@ -82,21 +82,16 @@ export function ProductCard({
     <div className="group flex flex-col rounded-xl border border-border bg-white transition-all duration-200 hover:border-primary/30 hover:shadow-md">
       {/* Image */}
       <Link href={`/product/${encodeURIComponent(slug)}`} className="relative block aspect-square overflow-hidden rounded-t-xl bg-background-alt">
-        {image ? (
-          <Image
-            src={image}
-            alt={name}
-            fill
-            className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"  // Lazy load images below the fold
-            placeholder="blur"  // Blur up effect while loading
-            blurDataURL="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3C/svg%3E"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-text-muted">
-            <div className="h-16 w-16 rounded-full bg-border/50" />
-          </div>
-        )}
+        <ImageWithPlaceholder
+          src={image}
+          alt={name}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+          loading="lazy"
+          placeholder="blur"
+          blurDataURL="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3C/svg%3E"
+        />
       </Link>
 
       {/* Content */}

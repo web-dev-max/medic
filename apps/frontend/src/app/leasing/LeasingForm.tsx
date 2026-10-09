@@ -7,10 +7,12 @@ import { FormPhoneInput, isPhoneValid, getPhoneForApi } from '@/components/ui/Fo
 import { apiClient } from '@/lib/api/client';
 import { CheckCircle } from 'lucide-react';
 import { isEmpty } from '@/lib/validators';
+import { ConsentCheckbox } from '@/components/ui/ConsentCheckbox';
 
 export function LeasingForm() {
   const [formState, setFormState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [consentGiven, setConsentGiven] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -38,6 +40,11 @@ export function LeasingForm() {
       newErrors.email = 'Email обязателен для заполнения';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Введите корректный адрес электронной почты';
+    }
+
+    // Consent validation (required)
+    if (!consentGiven) {
+      newErrors.consent = 'Необходимо дать согласие на обработку персональных данных';
     }
 
     setErrors(newErrors);
@@ -72,10 +79,10 @@ export function LeasingForm() {
 
     try {
       const apiData = { ...formData, phone: getPhoneForApi(formData.phone) };
-      await apiClient.submitGeneralRequest(apiData);
+      await apiClient.submitLeasingRequest(apiData);
       setFormState('success');
       setFormData({ name: '', phone: '', email: '', message: '' });
-      setTimeout(() => setFormState('idle'), 3000);
+      setTimeout(() => setFormState('idle'), 5000);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка отправки';
       
@@ -152,6 +159,21 @@ export function LeasingForm() {
           <Button type="submit" disabled={formState === 'loading'}>
             {formState === 'loading' ? 'Отправка...' : 'Отправить заявку'}
           </Button>
+
+          <ConsentCheckbox
+            checked={consentGiven}
+            onChange={(checked) => {
+              setConsentGiven(checked);
+              if (errors.consent) {
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors.consent;
+                  return newErrors;
+                });
+              }
+            }}
+            error={errors.consent}
+          />
         </form>
       )}
     </div>

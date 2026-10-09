@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loading, ErrorState } from '@/components/ui/Loading';
 import { apiClient } from '@/lib/api/client';
-import Image from 'next/image';
 import { ProductForm } from './ProductForm';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { parseHtmlContent } from '@/lib/htmlUtils';
+import { ImageWithPlaceholder } from '@/components/ui/ImageWithPlaceholder';
 
 interface ProductClientProps {
   slug: string;
@@ -19,7 +19,9 @@ export function ProductClient({ slug }: ProductClientProps) {
     queryFn: () => apiClient.getProduct(slug),
   });
 
-  const product = (productData as unknown as { items?: unknown[] })?.items?.[0] || (productData as Record<string, unknown> | null);
+  const product =
+    (productData as unknown as { items?: unknown[] })?.items?.[0] ||
+    (productData as Record<string, unknown> | null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const images = ((product as Record<string, unknown>)?.images as string[]) || [];
@@ -53,54 +55,50 @@ export function ProductClient({ slug }: ProductClientProps) {
 
   const productName = (product as Record<string, unknown>).name as string;
   const productBrand = (product as Record<string, unknown>).brand as { name?: string } | undefined;
-  const productShortDescription = (product as Record<string, unknown>).shortDescription as string | undefined;
+  const productShortDescription = (product as Record<string, unknown>).shortDescription as
+    | string
+    | undefined;
   const productId = (product as Record<string, unknown>).id as number;
   const productPrice = (product as Record<string, unknown>).price as string;
   const productOldPrice = (product as Record<string, unknown>).oldPrice as string | undefined;
-  const productSpecifications = (product as Record<string, unknown>).specifications as Record<string, string> | undefined;
+  const productSpecifications = (product as Record<string, unknown>).specifications as
+    | Record<string, string>
+    | undefined;
   const productDescription = (product as Record<string, unknown>).description as string | undefined;
 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <div>
         <div className="relative mb-4 aspect-square overflow-hidden rounded-xl bg-background-alt">
-          {images[selectedImageIndex] ? (
-            <Image
-              src={images[selectedImageIndex]}
-              alt={`${productName} - изображение ${selectedImageIndex + 1}`}
-              fill
-              className="object-contain p-4"
-              priority
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <div className="h-32 w-32 rounded-full bg-border/50" />
-            </div>
-          )}
+          <ImageWithPlaceholder
+            src={images[selectedImageIndex]}
+            alt={`${productName} - изображение ${selectedImageIndex + 1}`}
+            fill
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            loading="eager"
+            className="object-contain p-4"
+          />
 
           {hasMultipleImages && (
             <>
               <button
                 onClick={goToPrevious}
-                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-lg hover:bg-white transition-colors"
+                className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-lg hover:bg-white transition-colors"
                 aria-label="Предыдущее изображение"
               >
                 <ChevronLeft className="h-5 w-5 text-text-primary" />
               </button>
               <button
                 onClick={goToNext}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-lg hover:bg-white transition-colors"
+                className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-lg hover:bg-white transition-colors"
                 aria-label="Следующее изображение"
               >
                 <ChevronRight className="h-5 w-5 text-text-primary" />
               </button>
+              <div className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
+                {selectedImageIndex + 1} / {images.length}
+              </div>
             </>
-          )}
-
-          {hasMultipleImages && (
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
-              {selectedImageIndex + 1} / {images.length}
-            </div>
           )}
         </div>
 
@@ -117,10 +115,11 @@ export function ProductClient({ slug }: ProductClientProps) {
                 }`}
                 aria-label={`Показать изображение ${index + 1}`}
               >
-                <Image
+                <ImageWithPlaceholder
                   src={img}
                   alt={`${productName} ${index + 1}`}
                   fill
+                  sizes="80px"
                   className="object-cover"
                 />
               </button>
@@ -130,13 +129,9 @@ export function ProductClient({ slug }: ProductClientProps) {
       </div>
 
       <div className="space-y-6">
-        {productBrand && (
-          <p className="text-sm text-text-muted">{productBrand.name}</p>
-        )}
+        {productBrand && <p className="text-sm text-text-muted">{productBrand.name}</p>}
 
-        <h1 className="text-2xl font-bold text-text-primary md:text-3xl">
-          {productName}
-        </h1>
+        <h1 className="text-2xl font-bold text-text-primary md:text-3xl">{productName}</h1>
 
         {productShortDescription && (
           <p className="text-text-secondary">{productShortDescription}</p>
@@ -169,7 +164,7 @@ export function ProductClient({ slug }: ProductClientProps) {
         {productDescription && (
           <div>
             <h2 className="mb-4 text-xl font-semibold text-text-primary">Описание</h2>
-            <div 
+            <div
               className="prose prose-sm max-w-none text-text-secondary"
               dangerouslySetInnerHTML={parseHtmlContent(productDescription)}
             />

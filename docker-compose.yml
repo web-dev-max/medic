@@ -20,5 +20,27 @@ services:
       timeout: 5s
       retries: 10
 
+  # Optional: Backend service (uncomment for Docker deployment)
+  # backend:
+  #   build: ./apps/backend
+  #   container_name: medikom_backend
+  #   ports:
+  #     - "3001:3001"
+  #   environment:
+  #     DB_HOST: mysql
+  #     DB_PORT: 3306
+  #     DB_USERNAME: medikom
+  #     DB_PASSWORD: medikom
+  #     DB_DATABASE: medikompru_new
+  #     IMAGE_BASE_URL: /uploads/images
+  #     BACKEND_PORT: 3001
+  #     FRONTEND_URL: http://localhost:3000
+  #   volumes:
+  #     - backend_uploads:/app/uploads
+  #   depends_on:
+  #     mysql:
+  #       condition: service_healthy
+
 volumes:
   mysql_data:
+  backend_uploads:

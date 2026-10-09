@@ -6,7 +6,6 @@ import { AdvantagesSection } from './AdvantagesSection';
 import { ServiceSection } from './ServiceSection';
 import { WarrantyDeliverySection } from './WarrantyDeliverySection';
 import { LeasingSection } from './LeasingSection';
-import { InfoArticlesSection } from './InfoArticlesSection';
 import { ContactsSection } from './ContactsSection';
 
 export function HomePageContent() {

@@ -13,17 +13,27 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 2560, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
 
-    // remotePatterns полностью заменяет deprecated `domains`
+    // remotePatterns — разрешаем загрузку изображений с:
+    // 1. локального backend (uploads)
+    // 2. Unsplash (для editorial контента)
+    // 3. production домена (если используется)
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'medikomplus.ru',
-        pathname: '/images/**',
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '3001',
+        pathname: '/uploads/**',
       },
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      // Production: uncomment when deploying
+      // {
+      //   protocol: 'https',
+      //   hostname: 'medikomplus.ru',
+      //   pathname: '/images/**',
+      // },
     ],
   },
 
@@ -32,6 +42,11 @@ const nextConfig = {
       {
         source: '/api/:path*',
         destination: `${process.env.API_URL || 'http://localhost:3001'}/api/:path*`,
+      },
+      // Proxy uploads to backend
+      {
+        source: '/uploads/:path*',
+        destination: `${process.env.API_URL || 'http://localhost:3001'}/uploads/:path*`,
       },
     ];
   },

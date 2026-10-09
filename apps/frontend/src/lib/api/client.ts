@@ -11,7 +11,6 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`;
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
         ...(options?.headers as Record<string, string>),
       },
       ...options,
@@ -28,7 +27,6 @@ class ApiClient {
   }
 
   private extractData(data: unknown) {
-    // Backend returns data directly (no { data: ... } wrapper)
     return data;
   }
 
@@ -70,6 +68,12 @@ class ApiClient {
     return this.extractData(response);
   }
 
+  // Content pages
+  async getContent(slug: string) {
+    const response = await this.request<unknown>(`/content/${encodeURIComponent(slug)}`);
+    return this.extractData(response);
+  }
+
   // Brands
   async getBrands() {
     const response = await this.request<unknown>('/brands');
@@ -86,12 +90,21 @@ class ApiClient {
     return this.extractData(response);
   }
 
-  // Requests
-  async submitCallback(data: { name: string; phone: string }) {
-    return this.request<unknown>('/requests/callback', {
+  // Requests - General (JSON)
+  private async submitJsonRequest<T>(endpoint: string, data: T): Promise<unknown> {
+    return this.request<unknown>(`/requests${endpoint}`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+  }
+
+  async submitCallback(data: { name: string; phone: string; consent?: boolean }) {
+    return this.submitJsonRequest('/callback', { ...data, consent: data.consent ?? true });
+  }
+
+  async submitGeneralRequest(data: { name: string; phone: string; email: string; message: string; consent?: boolean }) {
+    return this.submitJsonRequest('/general', { ...data, consent: data.consent ?? true });
   }
 
   async submitProductRequest(data: {
@@ -101,13 +114,45 @@ class ApiClient {
     productId?: string;
     productName?: string;
     comment?: string;
+    consent?: boolean;
   }) {
-    return this.request<unknown>('/requests/product', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+    return this.submitJsonRequest('/product', { ...data, consent: data.consent ?? true });
   }
 
+  async submitCartRequest(data: {
+    name: string;
+    phone: string;
+    email: string;
+    items: Array<{ productId: number; productName: string; price: number; quantity: number }>;
+    comment?: string;
+    consent?: boolean;
+  }) {
+    return this.submitJsonRequest('/cart', { ...data, consent: data.consent ?? true });
+  }
+
+  async submitLeasingRequest(data: {
+    name: string;
+    phone: string;
+    email: string;
+    message?: string;
+    consent?: boolean;
+  }) {
+    return this.submitJsonRequest('/leasing', { ...data, consent: data.consent ?? true });
+  }
+
+  async submitPriceInquiryRequest(data: {
+    name: string;
+    phone: string;
+    email: string;
+    productId?: string;
+    productName?: string;
+    comment?: string;
+    consent?: boolean;
+  }) {
+    return this.submitJsonRequest('/price-inquiry', { ...data, consent: data.consent ?? true });
+  }
+
+  // Requests - Service (multipart/form-data for file uploads)
   async submitServiceRequest(data: {
     name: string;
     organization?: string;
@@ -118,38 +163,28 @@ class ApiClient {
     model: string;
     serialNumber?: string;
     problemDescription: string;
-    file?: string;
+    photo?: File | null;
+    consent?: boolean;
   }) {
+    const formData = new FormData();
+    formData.append('name', data.name);
+    if (data.organization) formData.append('organization', data.organization);
+    formData.append('phone', data.phone);
+    formData.append('email', data.email);
+    formData.append('equipmentType', data.equipmentType);
+    formData.append('manufacturer', data.manufacturer);
+    formData.append('model', data.model);
+    if (data.serialNumber) formData.append('serialNumber', data.serialNumber);
+    formData.append('problemDescription', data.problemDescription);
+    formData.append('consent', String(data.consent ?? true));
+    if (data.photo) {
+      formData.append('photos', data.photo, data.photo.name);
+    }
+
     return this.request<unknown>('/requests/service', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: formData,
     });
-  }
-
-  async submitGeneralRequest(data: { name: string; phone: string; email: string; message: string }) {
-    return this.request<unknown>('/requests/general', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async submitCartRequest(data: {
-    name: string;
-    phone: string;
-    email: string;
-    items: Array<{ productId: number; productName: string; price: number; quantity: number }>;
-    comment?: string;
-  }) {
-    return this.request<unknown>('/requests/cart', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  // Content
-  async getContent(slug: string) {
-    const response = await this.request<unknown>(`/content/${slug}`);
-    return this.extractData(response);
   }
 }
 

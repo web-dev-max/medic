@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { ImageWithPlaceholder } from '@/components/ui/ImageWithPlaceholder';
 import { ArrowRight } from 'lucide-react';
-import Image from 'next/image';
 import { useHomepageCategories } from '@/lib/api/hooks';
 import { Loading } from '@/components/ui/Loading';
 
@@ -75,22 +75,13 @@ export function CategoryGrid() {
             >
               {/* Category Image from DB */}
               <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-lg bg-[rgb(232_244_248_/_0.2)] p-2 overflow-hidden">
-                {category.image ? (
-                  <Image
-                    src={category.image}
-                    alt={category.name}
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110"
-                    onError={(e) => {
-                      // Fallback to placeholder if image fails to load
-                      (e.target as HTMLImageElement).style.display = 'none';
-                      (e.target as HTMLImageElement).parentElement?.classList.add('bg-primary/10');
-                    }}
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded bg-primary/10" />
-                )}
+                <ImageWithPlaceholder
+                  src={category.image}
+                  alt={category.name}
+                  width={48}
+                  height={48}
+                  className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-110"
+                />
               </div>
               <span className="text-center text-sm flex items-center gap-4 font-medium text-text-secondary group-hover:text-primary transition-colors">
                 {category.name}

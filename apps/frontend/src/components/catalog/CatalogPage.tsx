@@ -149,7 +149,7 @@ function CatalogPageContent({ categoryId, search }: CatalogPageProps) {
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Sidebar - hidden on mobile, visible on desktop */}
           <aside className="hidden w-full shrink-0 lg:block lg:w-72 xl:w-80">
-            <div className="sticky top-24 rounded-xl border border-border bg-white p-6">
+            <div className="sticky top-40 max-h-[calc(100vh-8rem)] overflow-y-auto rounded-xl border border-border bg-white p-6">
               <Filters
                 brands={brands}
                 customFieldFilters={customFieldFilters}

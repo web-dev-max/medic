@@ -9,6 +9,7 @@ import { apiClient } from '@/lib/api/client';
 import { CheckCircle, ShoppingCart } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 import { isEmpty } from '@/lib/validators';
+import { ConsentCheckbox } from '@/components/ui/ConsentCheckbox';
 
 interface ProductFormProps {
   productId: number;
@@ -21,6 +22,7 @@ export function ProductForm({ productId, productName, price, oldPrice }: Product
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [formState, setFormState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [consentGiven, setConsentGiven] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -97,6 +99,11 @@ export function ProductForm({ productId, productName, price, oldPrice }: Product
       newErrors.email = 'Введите корректный адрес электронной почты';
     }
 
+    // Consent validation (required)
+    if (!consentGiven) {
+      newErrors.consent = 'Необходимо дать согласие на обработку персональных данных';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -129,7 +136,7 @@ export function ProductForm({ productId, productName, price, oldPrice }: Product
 
     try {
       const apiData = { ...formData, phone: getPhoneForApi(formData.phone) };
-      await apiClient.submitProductRequest({
+      await apiClient.submitPriceInquiryRequest({
         ...apiData,
         productId: String(productId),
         productName,
@@ -139,7 +146,7 @@ export function ProductForm({ productId, productName, price, oldPrice }: Product
         setShowOrderModal(false);
         setFormState('idle');
         setFormData({ name: '', phone: '', email: '', comment: '' });
-      }, 2000);
+      }, 5000);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Ошибка отправки';
       
@@ -324,6 +331,21 @@ export function ProductForm({ productId, productName, price, oldPrice }: Product
                 Отмена
               </Button>
             </div>
+
+            <ConsentCheckbox
+              checked={consentGiven}
+              onChange={(checked) => {
+                setConsentGiven(checked);
+                if (errors.consent) {
+                  setErrors((prev) => {
+                    const newErrors = { ...prev };
+                    delete newErrors.consent;
+                    return newErrors;
+                  });
+                }
+              }}
+              error={errors.consent}
+            />
           </form>
         )}
       </Modal>
