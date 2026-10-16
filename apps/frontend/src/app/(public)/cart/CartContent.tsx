@@ -149,11 +149,11 @@ export function CartContent() {
                 className="flex gap-4 rounded-xl border border-border bg-white p-4"
               >
                 <Link
-                  href={`/product/${item.slug}`}
+                  href={`/product/${encodeURIComponent(item.slug)}`}
                   className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-background-alt"
                 >
                   <ImageWithPlaceholder
-                    src={item.image}
+                    src={item.image || null}
                     alt={item.name}
                     fill
                     className="object-contain p-2"
@@ -162,7 +162,7 @@ export function CartContent() {
 
                 <div className="flex flex-1 flex-col">
                   <Link
-                    href={`/product/${item.slug}`}
+                    href={`/product/${encodeURIComponent(item.slug)}`}
                     className="font-medium text-text-primary hover:text-primary"
                   >
                     {item.name}

@@ -18,14 +18,55 @@ export const metadata: Metadata = {
   },
 };
 
-export default function WarrantyPage() {
+async function fetchWarrantyContent(): Promise<{
+  title?: string;
+  content?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+} | null> {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/content/warranty`,
+      {
+        next: { revalidate: 60 }, // Revalidate every 60 seconds
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch warranty content');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching warranty content:', error);
+    return null;
+  }
+}
+
+export default async function WarrantyPage() {
+  const content = await fetchWarrantyContent();
+  
+  const pageTitle = content?.title || 'Гарантия — Медиком Плюс';
+  const pageContent = content?.content || '';
+
+  // If we have custom HTML content, render it
+  if (pageContent) {
+    return (
+      <div 
+        className="section max-w-5xl mx-auto"
+        dangerouslySetInnerHTML={{ __html: pageContent }}
+      />
+    );
+  }
+
+  // Fallback to default content if no custom content exists
   return (
     <div className="section">
       <div className="container max-w-5xl">
         <Breadcrumbs items={[{ label: 'Гарантия' }]} />
 
         <h1 className="mb-4 text-3xl font-bold text-text-primary md:text-4xl lg:text-5xl">
-          Гарантийное обслуживание
+          {pageTitle}
         </h1>
 
         <p className="mb-10 max-w-3xl text-lg text-text-secondary">
@@ -73,7 +114,7 @@ export default function WarrantyPage() {
           >
             <InfoList>
               <InfoListItem>Бесплатный ремонт оборудования</InfoListItem>
-              <InfoListItem>Замену неисправных деталей</InfoListItem>
+              <InfoListItem>Замена неисправных деталей</InfoListItem>
               <InfoListItem>Выезд сервисного инженера</InfoListItem>
               <InfoListItem>Консультации по эксплуатации</InfoListItem>
             </InfoList>

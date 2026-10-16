@@ -1,8 +1,2 @@
 packages:
   - "apps/*"
-  - "packages/*"
-allowBuilds:
-  '@nestjs/core': set this to true or false
-  '@nestjs/core@10.4.22': true
-  '@scarf/scarf': set this to true or false
-  '@scarf/scarf@1.4.0': true

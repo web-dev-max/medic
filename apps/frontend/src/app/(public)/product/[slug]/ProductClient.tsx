@@ -54,6 +54,7 @@ export function ProductClient({ slug }: ProductClientProps) {
   }
 
   const productName = (product as Record<string, unknown>).name as string;
+  const productSlug = (product as Record<string, unknown>).slug as string;
   const productBrand = (product as Record<string, unknown>).brand as { name?: string } | undefined;
   const productShortDescription = (product as Record<string, unknown>).shortDescription as
     | string
@@ -140,8 +141,10 @@ export function ProductClient({ slug }: ProductClientProps) {
         <ProductForm
           productId={productId}
           productName={productName}
+          slug={productSlug}
           price={parseFloat(productPrice)}
           oldPrice={productOldPrice ? parseFloat(productOldPrice) : undefined}
+          image={images.length > 0 ? images[0] : undefined}
         />
 
         {productSpecifications && Object.keys(productSpecifications).length > 0 && (

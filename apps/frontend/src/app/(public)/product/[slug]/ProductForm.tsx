@@ -14,11 +14,13 @@ import { ConsentCheckbox } from '@/components/ui/ConsentCheckbox';
 interface ProductFormProps {
   productId: number;
   productName: string;
+  slug: string;
   price: number;
   oldPrice?: number;
+  image?: string;
 }
 
-export function ProductForm({ productId, productName, price, oldPrice }: ProductFormProps) {
+export function ProductForm({ productId, productName, slug, price, oldPrice, image }: ProductFormProps) {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [formState, setFormState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -57,9 +59,9 @@ export function ProductForm({ productId, productName, price, oldPrice }: Product
     addItem({
       id: productId,
       name: productName,
-      slug: '',
+      slug: slug,
       price,
-      image: '',
+      image: image || '',
     });
   };
 

@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity('admin_users')
+@Entity('jos_admin_users')
 export class AdminUser {
   @PrimaryGeneratedColumn({ type: 'int' })
   id: number;
@@ -17,6 +17,6 @@ export class AdminUser {
   @Column({ type: 'enum', enum: ['admin', 'editor'], default: 'editor' })
   role: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn({ type: 'timestamp', name: 'created_at' })
   createdAt: Date;
 }

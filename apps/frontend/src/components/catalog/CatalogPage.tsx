@@ -196,7 +196,7 @@ function CatalogPageContent({ categoryId, search }: CatalogPageProps) {
                       slug={p.slug}
                       price={parseFloat(p.price)}
                       oldPrice={p.oldPrice ? parseFloat(p.oldPrice) : undefined}
-                      image={p.images?.[0]}
+                      images={p.images}
                       brand={p.brand?.name}
                     />
                     );

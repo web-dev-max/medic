@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { join } from 'path';
-import { databaseConfig } from './config/database.config';
+import { AdminUser } from './modules/auth/admin-user.entity';
+import { Product } from './modules/products/product.entity';
+import { Category } from './modules/categories/category.entity';
+import { Brand } from './modules/brands/brand.entity';
+import { RequestEntity } from './modules/requests/request.entity';
+import { ContentPage } from './modules/content/content-page.entity';
 import { ProductsModule } from './modules/products/products.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { BrandsModule } from './modules/brands/brands.module';
@@ -11,6 +15,7 @@ import { ContentModule } from './modules/content/content.module';
 import { SeoModule } from './modules/seo/seo.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailModule } from './modules/mail/mail.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -29,9 +34,19 @@ import { MailModule } from './modules/mail/mail.module';
         username: configService.getOrThrow<string>('DB_USERNAME'),
         password: configService.getOrThrow<string>('DB_PASSWORD'),
         database: configService.getOrThrow<string>('DB_DATABASE'),
+        charset: 'utf8mb4',
+        extra: {
+          charset: 'UTF8MB4_GENERAL_CI',
+          connectTimeout: 10000,
+        },
 
         entities: [
-          join(__dirname, '../modules/**/*.entity{.ts,.js}'),
+          AdminUser,
+          Product,
+          Category,
+          Brand,
+          RequestEntity,
+          ContentPage,
         ],
 
         synchronize: false,
@@ -46,6 +61,7 @@ import { MailModule } from './modules/mail/mail.module';
     SeoModule,
     AuthModule,
     MailModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

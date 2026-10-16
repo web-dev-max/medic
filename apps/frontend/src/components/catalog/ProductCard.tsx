@@ -13,7 +13,7 @@ interface ProductCardProps {
   slug: string;
   price: number;
   oldPrice?: number;
-  image?: string;
+  images?: string[];
   brand?: string;
   category?: string;
 }
@@ -24,12 +24,15 @@ export function ProductCard({
   slug,
   price,
   oldPrice,
-  image,
+  images,
   brand,
 }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   const items = useCartStore((state) => state.items);
   const { showToast } = useToast();
+
+  // Get first image from images array
+  const image = images && images.length > 0 ? images[0] : undefined;
 
   // Check if product is in cart
   const cartItem = items.find((item) => item.id === id);
@@ -83,7 +86,7 @@ export function ProductCard({
       {/* Image */}
       <Link href={`/product/${encodeURIComponent(slug)}`} className="relative block aspect-square overflow-hidden rounded-t-xl bg-background-alt">
         <ImageWithPlaceholder
-          src={image}
+          src={image || undefined}
           alt={name}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

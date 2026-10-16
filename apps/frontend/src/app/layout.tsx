@@ -1,8 +1,7 @@
-import type { Metadata } from 'next';
+import { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
-import { PageLayout } from '@/components/layout/PageLayout';
 
 const inter = Inter({
   subsets: ['cyrillic', 'latin'],
@@ -71,7 +70,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -80,7 +79,7 @@ export default function RootLayout({
     <html lang="ru" className={inter.variable}>
       <body className="font-sans text-text-primary bg-background antialiased">
         <Providers>
-          <PageLayout>{children}</PageLayout>
+          {children}
         </Providers>
       </body>
     </html>

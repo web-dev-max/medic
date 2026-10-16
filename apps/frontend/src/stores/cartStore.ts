@@ -20,7 +20,11 @@ interface CartState {
   totalPrice: () => number;
   hasPendingAnimation: boolean;
   triggerAddAnimation: () => void;
+  refreshItemImage: (id: number) => Promise<void>;
+  refreshAllImages: () => Promise<void>;
 }
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -96,12 +100,71 @@ export const useCartStore = create<CartState>()(
         set({ hasPendingAnimation: true });
         setTimeout(() => set({ hasPendingAnimation: false }), 600);
       },
+
+      // Refresh image for a single item from API
+      refreshItemImage: async (id: number) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/products`);
+          if (!response.ok) return;
+          
+          const data = await response.json();
+          const items = (data as unknown as { items?: unknown[] })?.items || [];
+          const product = (items as unknown[]).find((p: unknown) => (p as { id: number }).id === id) as { id: number; images?: string[] } | undefined;
+          
+          if (product?.images && product.images.length > 0) {
+            set((state) => ({
+              items: state.items.map((item) =>
+                item.id === id && !item.image
+                  ? { ...item, image: product.images![0] }
+                  : item
+              ),
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to refresh image for cart item:', error);
+        }
+      },
+
+      // Refresh images for all items that don't have images
+      refreshAllImages: async () => {
+        try {
+          const state = get();
+          const itemsWithoutImage = state.items.filter((item) => !item.image);
+          
+          if (itemsWithoutImage.length === 0) {
+            return;
+          }
+
+          const response = await fetch(`${API_BASE_URL}/products`);
+          if (!response.ok) return;
+          
+          const data = await response.json();
+          const items = (data as unknown as { items?: unknown[] })?.items || [];
+          
+          set((state) => {
+            const updatedItems = state.items.map((item) => {
+              const product = (items as unknown[]).find((p: unknown) => (p as { id: number }).id === item.id) as { id: number; images?: string[] } | undefined;
+              
+              if (!item.image && product?.images && product.images.length > 0) {
+                return { ...item, image: product.images[0] };
+              }
+              return item;
+            });
+            
+            return { items: updatedItems };
+          });
+        } catch (error) {
+          console.error('Failed to refresh cart images:', error);
+        }
+      },
     }),
     {
       name: 'medikom-cart',
       onRehydrateStorage: () => (state) => {
         if (state) {
           console.log('medikom-cart: Cart restored:', state.items.length, 'items');
+          // Refresh images for items that don't have images
+          state.refreshAllImages();
         }
       },
     }

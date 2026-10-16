@@ -12,7 +12,7 @@ interface SearchProduct {
   name: string;
   slug: string;
   price: number;
-  images: Array<{ file_url: string }>;
+  images: string[];
   brand?: { name: string };
 }
 
@@ -183,7 +183,7 @@ export function SearchAutocomplete() {
                   {/* Product Image */}
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-background-alt overflow-hidden">
                     <ImageWithPlaceholder
-                      src={product.images && product.images.length > 0 ? product.images[0].file_url : null}
+                      src={product.images && product.images.length > 0 ? product.images[0] : null}
                       alt={product.name}
                       width={48}
                       height={48}
