@@ -104,7 +104,7 @@ export const useCartStore = create<CartState>()(
       // Refresh image for a single item from API
       refreshItemImage: async (id: number) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/products`);
+          const response = await fetch(`${API_BASE_URL}/api/products`);
           if (!response.ok) return;
           
           const data = await response.json();
