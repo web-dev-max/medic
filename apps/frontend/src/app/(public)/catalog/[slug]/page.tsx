@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { CatalogPage } from '@/components/catalog/CatalogPage';
+import { CategoryBreadcrumbs } from '@/components/layout/CategoryBreadcrumbs';
 import { apiClient } from '@/lib/api/client';
 
 interface CategoryPageProps {
@@ -9,7 +10,7 @@ interface CategoryPageProps {
 
 export async function generateStaticParams() {
   try {
-    const categories = await apiClient.getCategoryTree();
+    const categories = await apiClient.getCatalogCategories();
     const categorized = categories as unknown[];
     return categorized.map((cat: unknown) => ({ slug: (cat as { slug: string }).slug }));
   } catch {
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: CategoryPageProps) {
   }
 }
 
-export default async function CategoryPageRoute({ params }: CategoryPageProps) {
+export default async function CategoryPageRoute({ params, searchParams }: CategoryPageProps) {
   try {
     const category = await apiClient.getCategory(params.slug);
     const categorized = category as unknown as { id?: number };
@@ -47,7 +48,13 @@ export default async function CategoryPageRoute({ params }: CategoryPageProps) {
     return (
       <div className="section">
         <div className="container">
-          <CatalogPage categoryId={categorized.id} />
+          <CategoryBreadcrumbs categorySlug={params.slug} />
+          
+          <CatalogPage
+            categoryId={categorized.id}
+            categorySlug={params.slug}
+            search={searchParams?.search as string}
+          />
         </div>
       </div>
     );

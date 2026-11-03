@@ -3,6 +3,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCategories } from '@/lib/api/hooks';
+import { CONTACT_INFO } from '@/lib/constants';
+import { MessageCircle } from 'lucide-react';
 
 interface Category {
   id: number;
@@ -57,16 +59,19 @@ export function Footer() {
               Современные решения для здоровья людей
             </p>
             <div className="flex gap-3">
-              {/* Social icons placeholders */}
-              <a href="https://vk.com/" target="_blank" rel="noopener noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-                <span className="text-xs font-bold text-white">VK</span>
-              </a>
-              <a href="https://t.me/" target="_blank" rel="noopener noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-                <span className="text-xs font-bold text-white">TG</span>
-              </a>
-              <a href="https://ok.ru/" target="_blank" rel="noopener noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-                <span className="text-xs font-bold text-white">OK</span>
-              </a>
+              {/* Messenger links */}
+              {CONTACT_INFO.messengers.map((messenger) => (
+                <a
+                  key={messenger.name}
+                  href={messenger.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                  title={messenger.name}
+                >
+                  <span className="text-xs font-bold text-white">{messenger.name.charAt(0)}</span>
+                </a>
+              ))}
             </div>
           </div>
 
@@ -86,7 +91,7 @@ export function Footer() {
                 catalogCategories.map((category) => (
                   <li key={category.id}>
                     <Link
-                      href={`/catalog?categoryId=${category.id}`}
+                      href={`/catalog/${category.slug}`}
                       className="text-sm text-footer-text/80 hover:text-white transition-colors"
                     >
                       {category.name}
@@ -134,6 +139,24 @@ export function Footer() {
               </li>
             </ul>
           </div>
+        </div>
+      </div>
+
+      {/* Messenger links in footer */}
+      <div className="container py-6">
+        <div className="flex items-center justify-center gap-4">
+          {CONTACT_INFO.messengers.map((messenger) => (
+            <a
+              key={messenger.name}
+              href={messenger.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-footer-text/80 hover:text-white transition-colors"
+            >
+              <MessageCircle className="h-5 w-5" />
+              <span>{messenger.name}: {messenger.phone}</span>
+            </a>
+          ))}
         </div>
       </div>
 

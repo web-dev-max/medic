@@ -16,6 +16,7 @@ import { SeoModule } from './modules/seo/seo.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailModule } from './modules/mail/mail.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AdminModule } from './modules/admin/admin.module';
     AuthModule,
     MailModule,
     AdminModule,
+    SearchModule,
   ],
 })
 export class AppModule {}

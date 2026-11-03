@@ -1,7 +1,7 @@
 import { type Metadata } from 'next';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { CONTACT_INFO } from '@/lib/constants';
-import { MapPin, Phone, Mail } from 'lucide-react';
+import { MapPin, Phone, Mail, MessageCircle } from 'lucide-react';
 import { ContactForm } from './ContactForm';
 
 export const metadata: Metadata = {
@@ -81,6 +81,30 @@ export default function ContactsPage() {
               className="absolute inset-0"
               title="Карта"
             />
+          </div>
+        </div>
+
+        {/* Messengers section */}
+        <div className="mt-12 rounded-xl border border-border bg-background-alt p-8">
+          <h2 className="mb-6 text-2xl font-bold text-text-primary">Мессенджеры</h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
+            {CONTACT_INFO.messengers.map((messenger) => (
+              <a
+                key={messenger.name}
+                href={messenger.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 rounded-lg border border-border bg-white p-6 transition-colors hover:border-primary hover:shadow-md"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-light">
+                  <MessageCircle className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="mb-1 font-semibold text-text-primary">{messenger.name}</h3>
+                  <p className="text-sm text-text-muted">{messenger.phone}</p>
+                </div>
+              </a>
+            ))}
           </div>
         </div>
 

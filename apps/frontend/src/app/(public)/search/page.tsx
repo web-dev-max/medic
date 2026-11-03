@@ -1,24 +1,25 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loading } from '@/components/ui/Loading';
 
 interface SearchPageProps {
   searchParams: { q?: string };
 }
 
-export async function generateMetadata({ searchParams }: SearchPageProps) {
-  const query = searchParams.q || '';
-  return {
-    title: query ? `Поиск: ${query} — Медиком Плюс` : 'Поиск — Медиком Плюс',
-    description: `Результаты поиска: ${query}`,
-  };
-}
-
-export default async function SearchPage({ searchParams }: SearchPageProps) {
+export default function SearchPage({ searchParams }: SearchPageProps) {
+  const router = useRouter();
   const query = searchParams.q || '';
 
-  if (!query) {
-    redirect('/catalog');
-  }
+  useEffect(() => {
+    if (!query) {
+      router.push('/catalog');
+    } else {
+      // Navigate to catalog with search param preserved
+      router.push(`/catalog?search=${encodeURIComponent(query)}`);
+    }
+  }, [query, router]);
 
-  // Redirect to catalog with search param
-  redirect(`/catalog?search=${encodeURIComponent(query)}`);
+  return <Loading text="Поиск..." />;
 }

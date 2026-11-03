@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Search, X } from 'lucide-react';
-import { useSearchProducts } from '@/lib/api/hooks';
+import { useGlobalSearch } from '@/lib/api/hooks';
 import { debounce } from '@/lib/utils';
 import { ImageWithPlaceholder } from '@/components/ui/ImageWithPlaceholder';
 
@@ -14,6 +14,14 @@ interface SearchProduct {
   price: number;
   images: string[];
   brand?: { name: string };
+}
+
+interface SearchCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  image?: string;
 }
 
 export function SearchAutocomplete() {
@@ -48,12 +56,16 @@ export function SearchAutocomplete() {
     }
   };
 
-  // Use debounced query for API search - get more results for better relevance
-  const { data, isLoading, error } = useSearchProducts(debouncedQuery, 10, {
+  // Use debounced query for global search - gets both products and categories
+  const { data, isLoading, error } = useGlobalSearch(debouncedQuery, 10, {
     enabled: debouncedQuery.length > 0,
     // Don't cache autocomplete results aggressively
     staleTime: 1000 * 60, // 1 minute
   });
+
+  // Extract products and categories from global search response
+  const products = ((data as unknown as { products?: unknown[] })?.products || []) as SearchProduct[];
+  const categories = ((data as unknown as { categories?: unknown[] })?.categories || []) as SearchCategory[];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -67,8 +79,7 @@ export function SearchAutocomplete() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Get products from search results
-  const products = ((data as unknown as { items?: unknown[] })?.items || []) as SearchProduct[];
+
 
   // Handle product click
   const handleProductClick = () => {
@@ -93,6 +104,8 @@ export function SearchAutocomplete() {
     setIsOpen(false);
     inputRef.current?.focus();
   };
+
+  const hasResults = products.length > 0 || categories.length > 0;
 
   if (!isFocused && !query) {
     return (
@@ -168,55 +181,99 @@ export function SearchAutocomplete() {
           )}
 
           {/* Results */}
-          {!isLoading && !error && products.length > 0 && (
+          {!isLoading && !error && hasResults && (
             <div className="max-h-80 overflow-y-auto">
-              <div className="border-b border-border px-4 py-2 text-xs font-medium text-text-muted">
-                Товары
-              </div>
-              {products.map((product) => (
-                <Link
-                  key={product.id}
-                  href={`/product/${encodeURIComponent(product.slug)}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-background-alt transition-colors"
-                  onClick={handleProductClick}
-                >
-                  {/* Product Image */}
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-background-alt overflow-hidden">
-                    <ImageWithPlaceholder
-                      src={product.images && product.images.length > 0 ? product.images[0] : null}
-                      alt={product.name}
-                      width={48}
-                      height={48}
-                      className="h-full w-full object-contain"
-                    />
+              {/* Categories Section */}
+              {categories.length > 0 && (
+                <>
+                  <div className="border-b border-border px-4 py-2 text-xs font-medium text-text-muted">
+                    Категории
                   </div>
+                  {categories.map((category) => (
+                    <Link
+                      key={category.id}
+                      href={`/catalog/${encodeURIComponent(category.slug)}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-background-alt transition-colors"
+                      onClick={handleProductClick}
+                    >
+                      {/* Category Image */}
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-background-alt overflow-hidden">
+                        <ImageWithPlaceholder
+                          src={category.image || null}
+                          alt={category.name}
+                          width={48}
+                          height={48}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
 
-                  {/* Product Info */}
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-sm font-medium text-text-primary truncate">
-                      {product.name}
-                    </span>
-                    {product.brand?.name && (
-                      <span className="text-xs text-text-muted">
-                        {product.brand.name}
-                      </span>
-                    )}
-                    <span className="text-sm font-semibold text-primary">
-                      {new Intl.NumberFormat('ru-RU', {
-                        style: 'currency',
-                        currency: 'RUB',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      }).format(product.price)}
-                    </span>
+                      {/* Category Info */}
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-sm font-medium text-text-primary truncate">
+                          {category.name}
+                        </span>
+                        <span className="text-xs text-primary font-medium">Категория</span>
+                      </div>
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              {/* Products Section */}
+              {products.length > 0 && (
+                <>
+                  {categories.length > 0 && (
+                    <div className="border-t border-border" />
+                  )}
+                  <div className="border-b border-border px-4 py-2 text-xs font-medium text-text-muted">
+                    Товары
                   </div>
-                </Link>
-              ))}
+                  {products.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`/product/${encodeURIComponent(product.slug)}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-background-alt transition-colors"
+                      onClick={handleProductClick}
+                    >
+                      {/* Product Image */}
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-background-alt overflow-hidden">
+                        <ImageWithPlaceholder
+                          src={product.images && product.images.length > 0 ? product.images[0] : null}
+                          alt={product.name}
+                          width={48}
+                          height={48}
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-sm font-medium text-text-primary truncate">
+                          {product.name}
+                        </span>
+                        {product.brand?.name && (
+                          <span className="text-xs text-text-muted">
+                            {product.brand.name}
+                          </span>
+                        )}
+                        <span className="text-sm font-semibold text-primary">
+                          {new Intl.NumberFormat('ru-RU', {
+                            style: 'currency',
+                            currency: 'RUB',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          }).format(product.price)}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </>
+              )}
             </div>
           )}
 
           {/* No Results */}
-          {!isLoading && !error && products.length === 0 && query.trim().length > 0 && (
+          {!isLoading && !error && !hasResults && query.trim().length > 0 && (
             <div className="px-4 py-6 text-center">
               <div className="mb-2 text-text-muted">
                 <Search className="mx-auto h-8 w-8 opacity-30" />
@@ -225,7 +282,7 @@ export function SearchAutocomplete() {
                 Ничего не найдено
               </p>
               <p className="mt-1 text-xs text-text-muted">
-                По вашему запросу «{query}» товары не найдены
+                По вашему запросу «{query}» ничего не найдено
               </p>
             </div>
           )}

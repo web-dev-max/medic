@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { type Metadata } from 'next';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { ProductClient } from './ProductClient';
+import { ProductBreadcrumbs } from '@/components/layout/ProductBreadcrumbs';
 import { apiClient } from '@/lib/api/client';
 
 interface ProductPageRouteProps {
@@ -61,25 +61,27 @@ export default async function ProductPageRoute({ params }: ProductPageRouteProps
   try {
     const data = await apiClient.getProduct(params.slug);
     const product = (data as unknown as { items?: unknown[] })?.items?.[0] || data;
+    const productData = product as unknown as { name?: string };
+    
     if (!product) {
       console.log('[ProductPage] Product not found in API');
       notFound();
     }
+
+    return (
+      <div className="section">
+        <div className="container">
+          <ProductBreadcrumbs 
+            productSlug={params.slug}
+            productName={productData?.name || 'Товар'}
+          />
+
+          <ProductClient slug={params.slug} />
+        </div>
+      </div>
+    );
   } catch (error) {
     console.log('[ProductPage] Error fetching product:', error);
     notFound();
   }
-
-  return (
-    <div className="section">
-      <div className="container">
-        <Breadcrumbs items={[
-          { label: 'Каталог', href: '/catalog' },
-          { label: 'Товар' },
-        ]} />
-
-        <ProductClient slug={params.slug} />
-      </div>
-    </div>
-  );
 }

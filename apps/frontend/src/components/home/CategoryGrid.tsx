@@ -9,6 +9,7 @@ import { Loading } from '@/components/ui/Loading';
 interface Category {
   id: number;
   name: string;
+  slug: string;
   image?: string;
 }
 
@@ -70,7 +71,7 @@ export function CategoryGrid() {
           {(categories || []).map((category: Category) => (
             <Link
               key={category.id}
-              href={`/catalog?categoryId=${category.id}`}
+              href={`/catalog/${category.slug}`}
               className="group flex flex-col items-center rounded-xl bg-[rgb(232_244_248_/_0.2)] p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
             >
               {/* Category Image from DB */}

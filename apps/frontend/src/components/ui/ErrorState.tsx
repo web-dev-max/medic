@@ -1,3 +1,5 @@
+'use client';
+
 import { AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from '@/lib/utils';

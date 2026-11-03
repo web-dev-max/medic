@@ -14,6 +14,12 @@ export class ProductsController {
     return this.productsService.findAll(query);
   }
 
+  @Get('filters/custom-fields')
+  @ApiOperation({ summary: 'Get available custom field values for category filtering' })
+  getCustomFieldValues(@Query('categoryId') categoryId: number, @Query('customFieldId') customFieldId?: number) {
+    return this.productsService.getCustomFieldValues(Number(categoryId), customFieldId ? Number(customFieldId) : undefined);
+  }
+
   @Get(':slug')
   @ApiOperation({ summary: 'Get product by slug' })
   findOne(@Param('slug') slug: string) {
@@ -22,9 +28,10 @@ export class ProductsController {
     return this.productsService.findOne(decodedSlug);
   }
 
-  @Get('filters/custom-fields')
-  @ApiOperation({ summary: 'Get available custom field values for category filtering' })
-  getCustomFieldValues(@Query('categoryId') categoryId: number, @Query('customFieldId') customFieldId?: number) {
-    return this.productsService.getCustomFieldValues(Number(categoryId), customFieldId ? Number(customFieldId) : undefined);
+  @Get(':slug/category-path')
+  @ApiOperation({ summary: 'Get category path for product' })
+  getProductCategoryPath(@Param('slug') slug: string) {
+    const decodedSlug = decodeURIComponent(slug);
+    return this.productsService.getProductCategoryPathFromSlug(decodedSlug);
   }
 }

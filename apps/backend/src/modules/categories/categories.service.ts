@@ -165,4 +165,246 @@ export class CategoriesService {
     const categories = await this.findAll();
     return categories.filter((c) => c.parentId === parentId);
   }
+
+  /**
+   * Search categories by name or slug.
+   * Returns up to 5 matching categories for autocomplete.
+   */
+  async searchCategories(query: string, limit: number = 5) {
+    const sql = `
+      SELECT 
+        c.virtuemart_category_id AS id,
+        cr.category_name AS name,
+        cr.slug AS slug,
+        cr.category_description AS description,
+        mm.file_url AS image
+      FROM jos_virtuemart_categories c
+      INNER JOIN jos_virtuemart_categories_ru_ru cr 
+        ON c.virtuemart_category_id = cr.virtuemart_category_id
+      LEFT JOIN jos_virtuemart_category_medias cm 
+        ON c.virtuemart_category_id = cm.virtuemart_category_id
+      LEFT JOIN jos_virtuemart_medias mm 
+        ON cm.virtuemart_media_id = mm.virtuemart_media_id 
+        AND mm.published = 1
+      WHERE c.shared = 0 
+        AND c.published = 1
+        AND (
+          LOWER(cr.category_name) LIKE LOWER(?) 
+          OR LOWER(cr.slug) LIKE LOWER(?)
+        )
+      GROUP BY c.virtuemart_category_id, cr.category_name, cr.slug, 
+               cr.category_description, mm.file_url
+      ORDER BY c.ordering ASC
+      LIMIT ?
+    `;
+
+    const searchParam = `%${query}%`;
+    const results = await this.dataSource.query(sql, [searchParam, searchParam, limit]);
+
+    const imageBaseUrl = this.configService.get<string>('IMAGE_BASE_URL') || '/uploads/images';
+
+    const items = results.map((row: any) => {
+      let image = row.image || null;
+      if (image && imageBaseUrl && !image.startsWith('http') && !image.startsWith('/uploads/')) {
+        image = imageBaseUrl + '/' + image.replace(/^\//, '');
+      }
+
+      return {
+        id: Number(row.id),
+        name: row.name || '',
+        slug: row.slug || '',
+        description: row.description || '',
+        image,
+      };
+    });
+
+    return { items, total: items.length };
+  }
+
+  /**
+   * Get full category hierarchy path (breadcrumbs) by slug.
+   * Returns array from root to current category.
+   */
+  async getCategoryPath(slug: string): Promise<Array<{ id: number; name: string; slug: string }>> {
+    // First get the category itself
+    const category = await this.dataSource
+      .createQueryBuilder()
+      .select(['c.virtuemart_category_id AS id', 'cr.category_name AS name', 'cr.slug AS slug', 'ccp.category_parent_id AS parentId'])
+      .from('jos_virtuemart_categories', 'c')
+      .innerJoin('jos_virtuemart_categories_ru_ru', 'cr', 'c.virtuemart_category_id = cr.virtuemart_category_id')
+      .leftJoin('jos_virtuemart_category_categories', 'ccp', 'c.virtuemart_category_id = ccp.category_child_id')
+      .where('cr.slug = :slug', { slug })
+      .getRawOne();
+
+    if (!category) {
+      return [];
+    }
+
+    // Build path by traversing up the hierarchy
+    const path: Array<{ id: number; name: string; slug: string }> = [];
+    let currentId: number | null = Number(category.id);
+    let visited = new Set<number>();
+    visited.add(currentId);
+
+    // Traverse up to build path (reverse order)
+    while (currentId) {
+      const parentRaw: any = await this.dataSource
+        .createQueryBuilder()
+        .select(['c.virtuemart_category_id AS id', 'cr.category_name AS name', 'cr.slug AS slug', 'ccp.category_parent_id AS parentId'])
+        .from('jos_virtuemart_categories', 'c')
+        .innerJoin('jos_virtuemart_categories_ru_ru', 'cr', 'c.virtuemart_category_id = cr.virtuemart_category_id')
+        .leftJoin('jos_virtuemart_category_categories', 'ccp', 'c.virtuemart_category_id = ccp.category_child_id')
+        .where('c.virtuemart_category_id = :id', { id: currentId })
+        .getRawOne();
+
+      if (!parentRaw) break;
+
+      path.unshift({
+        id: Number(parentRaw.id),
+        name: parentRaw.name || '',
+        slug: parentRaw.slug || '',
+      });
+
+      const parentId = parentRaw.parentId ? Number(parentRaw.parentId) : null;
+      
+      // Prevent infinite loops
+      if (parentId && visited.has(parentId)) break;
+      if (parentId) {
+        visited.add(parentId);
+        currentId = parentId;
+      } else {
+        currentId = null;
+      }
+    }
+
+    return path;
+  }
+
+  /**
+   * Get all categories for catalog page with product count and image fallback.
+   * Supports pagination. Compatible with MySQL 5.7.
+   */
+  async findCatalog(page: number = 1, limit: number = 12) {
+    const offset = (page - 1) * limit;
+
+    // Query 1: Get categories with their images (deduplicated)
+    const categoriesSql = `
+      SELECT 
+        c.virtuemart_category_id AS id,
+        cr.category_name AS name,
+        cr.slug AS slug,
+        cr.category_description AS description,
+        c.ordering AS sortOrder,
+        cc.category_parent_id AS parentId,
+        MAX(mm.file_url) AS categoryImage
+      FROM jos_virtuemart_categories c
+      INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
+      LEFT JOIN jos_virtuemart_category_categories cc ON c.virtuemart_category_id = cc.category_child_id
+      LEFT JOIN jos_virtuemart_category_medias cm ON c.virtuemart_category_id = cm.virtuemart_category_id
+      LEFT JOIN jos_virtuemart_medias mm ON cm.virtuemart_media_id = mm.virtuemart_media_id 
+        AND mm.published = 1
+        AND mm.file_url IS NOT NULL
+        AND mm.file_url != ''
+      WHERE c.shared = 0
+      GROUP BY c.virtuemart_category_id, cr.category_name, cr.slug, cr.category_description,
+               c.ordering, cc.category_parent_id
+      ORDER BY c.ordering ASC
+      LIMIT ? OFFSET ?
+    `;
+
+    const categories = await this.dataSource.query(categoriesSql, [limit, offset]);
+
+    // Count total categories
+    const countSql = `
+      SELECT COUNT(*) AS total
+      FROM jos_virtuemart_categories
+      WHERE shared = 0
+    `;
+    const countResult = await this.dataSource.query(countSql);
+    const total = parseInt(countResult[0]?.total || '0', 10);
+
+    // Query 2: Get product counts per category
+    const countsSql = `
+      SELECT virtuemart_category_id, COUNT(DISTINCT virtuemart_product_id) AS cnt
+      FROM jos_virtuemart_product_categories
+      GROUP BY virtuemart_category_id
+    `;
+    const counts = await this.dataSource.query(countsSql);
+
+    // Query 3: Get first product image per category (for fallback)
+    const imagesSql = `
+      SELECT pc.virtuemart_category_id, pm.file_url
+      FROM jos_virtuemart_product_categories pc
+      INNER JOIN jos_virtuemart_product_medias pmed
+        ON pc.virtuemart_product_id = pmed.virtuemart_product_id
+        AND pmed.ordering = (
+          SELECT MIN(pmed2.ordering)
+          FROM jos_virtuemart_product_medias pmed2
+          WHERE pmed2.virtuemart_product_id = pc.virtuemart_product_id
+        )
+      INNER JOIN jos_virtuemart_medias pm
+        ON pmed.virtuemart_media_id = pm.virtuemart_media_id
+      WHERE pm.published = 1
+      GROUP BY pc.virtuemart_category_id, pm.file_url
+    `;
+    const productImages = await this.dataSource.query(imagesSql);
+
+    // Build maps for quick lookup
+    const productCountMap = new Map<string, number>();
+    counts.forEach((row: any) => {
+      productCountMap.set(String(row.virtuemart_category_id), Number(row.cnt));
+    });
+
+    const productImageMap = new Map<string, string>();
+    productImages.forEach((row: any) => {
+      if (row.file_url && !productImageMap.has(String(row.virtuemart_category_id))) {
+        productImageMap.set(String(row.virtuemart_category_id), row.file_url);
+      }
+    });
+
+    const imageBaseUrl = this.configService.get<string>('IMAGE_BASE_URL') || 'http://localhost:3001/uploads/images';
+
+    // Process results: merge category image with product image fallback
+    const result = categories.map((row: any) => {
+      let image = row.categoryImage || null;
+      
+      // Normalize image URL
+      if (image && imageBaseUrl && !image.startsWith('http') && !image.startsWith('/uploads/')) {
+        image = imageBaseUrl + '/' + image.replace(/^\//, '');
+      }
+
+      // Fallback: use first product image if category has no image
+      let finalImage = image;
+      if (!finalImage) {
+        const firstProductImage = productImageMap.get(String(row.id));
+        if (firstProductImage) {
+          finalImage = firstProductImage;
+          if (imageBaseUrl && !finalImage.startsWith('http') && !finalImage.startsWith('/uploads/')) {
+            finalImage = imageBaseUrl + '/' + finalImage.replace(/^\//, '');
+          }
+        }
+      }
+
+      return {
+        id: Number(row.id),
+        name: row.name || '',
+        slug: row.slug || '',
+        description: row.description || '',
+        image: finalImage || null,
+        parentId: row.parentId ? Number(row.parentId) : null,
+        sortOrder: Number(row.sortOrder) || 0,
+        productCount: productCountMap.get(String(row.id)) || 0,
+      };
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      items: result,
+      total,
+      page,
+      pageSize: limit,
+      totalPages,
+    };
+  }
 }

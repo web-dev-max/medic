@@ -1,16 +1,21 @@
+'use client';
+
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
-  onPageChange: (page: number) => void;
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
   currentPage,
   totalPages,
-  onPageChange,
 }) => {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  
   if (totalPages <= 1) return null;
 
   const pages: (number | string)[] = [];
@@ -26,15 +31,23 @@ export const Pagination: React.FC<PaginationProps> = ({
     }
   }
 
+  const buildUrl = (page: number): string => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', String(page));
+    return `${pathname}?${params.toString()}`;
+  };
+
   return (
     <nav className="flex items-center justify-center gap-1" aria-label="Pagination">
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="rounded-md border border-border px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-background-alt disabled:opacity-50 disabled:cursor-not-allowed"
+      <Link
+        href={currentPage > 1 ? buildUrl(currentPage - 1) : pathname}
+        className={cn(
+          'rounded-md border border-border px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-background-alt',
+          currentPage === 1 && 'opacity-50 cursor-not-allowed'
+        )}
       >
         Назад
-      </button>
+      </Link>
 
       {pages.map((page, index) =>
         page === '...' ? (
@@ -42,9 +55,9 @@ export const Pagination: React.FC<PaginationProps> = ({
             ...
           </span>
         ) : (
-          <button
+          <Link
             key={page}
-            onClick={() => onPageChange(page as number)}
+            href={buildUrl(page as number)}
             className={cn(
               'min-w-[40px] rounded-md px-3 py-2 text-sm font-medium transition-colors',
               page === currentPage
@@ -53,17 +66,19 @@ export const Pagination: React.FC<PaginationProps> = ({
             )}
           >
             {page}
-          </button>
+          </Link>
         ),
       )}
 
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="rounded-md border border-border px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-background-alt disabled:opacity-50 disabled:cursor-not-allowed"
+      <Link
+        href={currentPage < totalPages ? buildUrl(currentPage + 1) : pathname}
+        className={cn(
+          'rounded-md border border-border px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-background-alt',
+          currentPage === totalPages && 'opacity-50 cursor-not-allowed'
+        )}
       >
         Вперёд
-      </button>
+      </Link>
     </nav>
   );
 };

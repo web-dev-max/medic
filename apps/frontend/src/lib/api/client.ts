@@ -47,6 +47,11 @@ class ApiClient {
     return this.extractData(response);
   }
 
+  async getProductCategoryPath(slug: string) {
+    const response = await this.request<unknown>(`/products/${encodeURIComponent(slug)}/category-path`);
+    return this.extractData(response);
+  }
+
   // Categories
   async getCategories() {
     const response = await this.request<unknown>('/categories');
@@ -63,8 +68,29 @@ class ApiClient {
     return this.extractData(response);
   }
 
+  async getCatalogCategories() {
+    const response = await this.request<unknown>('/categories/catalog');
+    return this.extractData(response);
+  }
+
   async getCategory(slug: string) {
     const response = await this.request<unknown>(`/categories/${encodeURIComponent(slug)}`);
+    return this.extractData(response);
+  }
+
+  async getCategoryPath(slug: string) {
+    const response = await this.request<unknown>(`/categories/${encodeURIComponent(slug)}/path`);
+    return this.extractData(response);
+  }
+
+  async searchCategories(query: string, limit: number = 5) {
+    const response = await this.request<unknown>(`/categories/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+    return this.extractData(response);
+  }
+
+  // Global search
+  async globalSearch(query: string, limit: number = 10) {
+    const response = await this.request<unknown>(`/search?q=${encodeURIComponent(query)}&limit=${limit}`);
     return this.extractData(response);
   }
 

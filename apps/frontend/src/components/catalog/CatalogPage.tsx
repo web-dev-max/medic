@@ -1,6 +1,6 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useBrands, useProducts, useCustomFieldFilters } from '@/lib/api/hooks';
 import { Loading, ErrorState, EmptyState } from '../ui/Loading';
 import { Filters } from './Filters';
@@ -13,6 +13,16 @@ interface CatalogPageProps {
   categoryId?: number;
   categorySlug?: string;
   search?: string;
+}
+
+function buildCategoryUrl(
+  categorySlug: string | undefined,
+  params: URLSearchParams
+): string {
+  if (categorySlug) {
+    return `/catalog/${categorySlug}?${params.toString()}`;
+  }
+  return `/catalog?${params.toString()}`;
 }
 
 interface CustomFieldFilter {
@@ -32,9 +42,21 @@ interface FilterState {
   customFieldFilters: Record<string, string[]>;
 }
 
-function CatalogPageContent({ categoryId, search }: CatalogPageProps) {
+function CatalogPageContent({ categoryId, categorySlug: propCategorySlug, search }: CatalogPageProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
+  
+  // Extract category slug from pathname as primary source
+  // e.g., /catalog/straight-tips-without-optic -> straight-tips-without-optic
+  let categorySlug = propCategorySlug;
+  if (!categorySlug && pathname && pathname.startsWith('/catalog/')) {
+    const parts = pathname.split('/');
+    // parts: ['', 'catalog', 'slug']
+    if (parts.length > 2) {
+      categorySlug = parts[2];
+    }
+  }
   
   // Read page from URL params - always sync with URL
   const urlPage = searchParams.get('page');
@@ -116,16 +138,9 @@ function CatalogPageContent({ categoryId, search }: CatalogPageProps) {
       }
     });
     
-    router.push(`/catalog?${params.toString()}`);
-  }, [searchParams, router]);
-
-  const handlePageChange = useCallback((newPage: number) => {
-    // Don't use setPage - page is derived from URL
-    const params = new URLSearchParams(searchParams);
-    params.set('page', String(newPage));
-    router.push(`/catalog?${params.toString()}`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [searchParams, router]);
+    const url = buildCategoryUrl(categorySlug, params);
+    router.push(url);
+  }, [searchParams, router, categorySlug, pathname]);
 
   const brands = ((brandsData as unknown as { items?: unknown[] })?.items || brandsData || []) as Array<{ id: number; name: string }>;
   const products = (productsData as unknown as { items?: unknown[] })?.items || (productsData as unknown as { data?: { items?: unknown[] } })?.data?.items || [];
@@ -208,7 +223,6 @@ function CatalogPageContent({ categoryId, search }: CatalogPageProps) {
                     <Pagination
                       currentPage={page}
                       totalPages={totalPages}
-                      onPageChange={handlePageChange}
                     />
                   </div>
                 )}
@@ -221,10 +235,10 @@ function CatalogPageContent({ categoryId, search }: CatalogPageProps) {
   );
 }
 
-export function CatalogPage({ categoryId, search }: CatalogPageProps) {
+export function CatalogPage({ categoryId, categorySlug, search }: CatalogPageProps) {
   return (
     <Suspense fallback={<Loading text="Загрузка каталога..." />}>
-      <CatalogPageContent categoryId={categoryId} search={search} />
+      <CatalogPageContent categoryId={categoryId} categorySlug={categorySlug} search={search} />
     </Suspense>
   );
 }

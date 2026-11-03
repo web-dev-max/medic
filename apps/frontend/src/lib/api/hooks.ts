@@ -29,6 +29,15 @@ export function useProduct(slug: string, options?: Omit<UseQueryOptions, 'queryK
   });
 }
 
+export function useProductCategoryPath(slug: string, options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['productCategoryPath', slug],
+    queryFn: () => apiClient.getProductCategoryPath(slug),
+    enabled: !!slug,
+    ...options,
+  });
+}
+
 // Categories
 export function useCategories(options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
   return useQuery({
@@ -54,11 +63,49 @@ export function useCategoryTree(options?: Omit<UseQueryOptions, 'queryKey' | 'qu
   });
 }
 
+export function useCatalogCategories(options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['categories', 'catalog'],
+    queryFn: () => apiClient.getCatalogCategories(),
+    ...options,
+  });
+}
+
 export function useCategory(slug: string, options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
   return useQuery({
     queryKey: ['category', slug],
     queryFn: () => apiClient.getCategory(slug),
     enabled: !!slug,
+    ...options,
+  });
+}
+
+export function useCategoryPath(slug: string, options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['categoryPath', slug],
+    queryFn: () => apiClient.getCategoryPath(slug),
+    enabled: !!slug,
+    ...options,
+  });
+}
+
+export function useSearchCategories(query: string, limit: number = 5, options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['searchCategories', query, limit],
+    queryFn: () => apiClient.searchCategories(query, limit),
+    enabled: query.length > 0,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    ...options,
+  });
+}
+
+// Global search
+export function useGlobalSearch(query: string, limit: number = 10, options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['globalSearch', query, limit],
+    queryFn: () => apiClient.globalSearch(query, limit),
+    enabled: query.length > 0,
+    staleTime: 1000 * 60 * 5, // 5 minutes
     ...options,
   });
 }

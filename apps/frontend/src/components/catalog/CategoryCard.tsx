@@ -11,10 +11,10 @@ interface CategoryCardProps {
   productCount?: number;
 }
 
-export function CategoryCard({ id, name, slug: _slug, image, productCount }: CategoryCardProps) {
+export function CategoryCard({ id: _id, name, slug, image, productCount }: CategoryCardProps) {
   return (
     <Link
-      href={`/catalog?categoryId=${id}`}
+      href={`/catalog/${slug}`}
       className="group flex items-center gap-4 rounded-xl border border-border bg-white p-4 transition-all duration-200 hover:border-primary/30 hover:shadow-md"
     >
       {image ? (

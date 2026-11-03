@@ -31,125 +31,132 @@ export class ProductsAdminService {
   }
 
   async findAll(query: ProductQueryDto) {
-    const page = query.page || 1;
-    const pageSize = query.pageSize || 20;
-    const offset = (page - 1) * pageSize;
+    try {
+      const page = query.page || 1;
+      const pageSize = query.pageSize || 20;
+      const offset = (page - 1) * pageSize;
 
-    let whereConditions = '';
-    const params: any[] = [];
+      let whereConditions = '';
+      const params: any[] = [];
 
-    if (query.search) {
-      whereConditions += ' AND pr.product_name LIKE ?';
-      params.push(`%${query.search}%`);
-    }
+      if (query.search) {
+        whereConditions += ' AND pr.product_name LIKE ?';
+        params.push(`%${query.search}%`);
+      }
 
-    if (query.categoryId) {
-      whereConditions += ' AND pc.virtuemart_category_id = ?';
-      params.push(query.categoryId);
-    }
+      if (query.categoryId) {
+        whereConditions += ' AND pc.virtuemart_category_id = ?';
+        params.push(Number(query.categoryId));
+      }
 
-    if (query.brandId) {
-      whereConditions += ' AND pm.virtuemart_manufacturer_id = ?';
-      params.push(query.brandId);
-    }
+      if (query.brandId) {
+        whereConditions += ' AND pm.virtuemart_manufacturer_id = ?';
+        params.push(Number(query.brandId));
+      }
 
-    // Get total count
-    const countQuery = `\
-      SELECT COUNT(DISTINCT p.virtuemart_product_id) as total
-      FROM jos_virtuemart_products p
-      INNER JOIN jos_virtuemart_products_ru_ru pr ON p.virtuemart_product_id = pr.virtuemart_product_id
-      LEFT JOIN jos_virtuemart_product_categories pc ON p.virtuemart_product_id = pc.virtuemart_product_id
-      WHERE 1=1 ${whereConditions}
-    `;
-    const [countRows] = await this.dataSource.query(countQuery, params);
-    const total = parseInt(countRows.total);
-
-    // Get products with all images
-    const sortField = query.sortBy === 'price' ? 'ppr.product_price' : 'p.virtuemart_product_id';
-    const sortOrder = query.sortOrder === 'asc' ? 'ASC' : 'DESC';
-
-    const productsQuery = `\
-      SELECT 
-        p.virtuemart_product_id as id,
-        pr.product_name as name,
-        pr.slug,
-        p.product_sku as sku,
-        COALESCE(pc.virtuemart_category_id, 0) as categoryId,
-        COALESCE(pm.virtuemart_manufacturer_id, 0) as brandId,
-        COALESCE(MIN(ppr.product_price), 0) as product_price,
-        p.product_in_stock,
-        p.published,
-        p.product_available_date as availableDate,
-        p.virtuemart_product_id as virtuemart_id
-      FROM jos_virtuemart_products p
-      INNER JOIN jos_virtuemart_products_ru_ru pr ON p.virtuemart_product_id = pr.virtuemart_product_id
-      LEFT JOIN jos_virtuemart_product_categories pc ON p.virtuemart_product_id = pc.virtuemart_product_id
-      LEFT JOIN jos_virtuemart_product_manufacturers pm ON p.virtuemart_product_id = pm.virtuemart_product_id
-      LEFT JOIN jos_virtuemart_product_prices ppr ON p.virtuemart_product_id = ppr.virtuemart_product_id
-      LEFT JOIN jos_virtuemart_manufacturers m ON pm.virtuemart_manufacturer_id = m.virtuemart_manufacturer_id
-      WHERE 1=1 ${whereConditions}
-      GROUP BY p.virtuemart_product_id, pr.product_name, pr.slug, p.product_sku, 
-               pc.virtuemart_category_id, pm.virtuemart_manufacturer_id,
-               p.product_in_stock, p.published, p.product_available_date
-      ORDER BY ${sortField} ${sortOrder}
-      LIMIT ? OFFSET ?
-    `;
-
-    const products = await this.dataSource.query(productsQuery, [...params, pageSize, offset]);
-
-    // Fetch images for all products
-    const productIds = products.map((p: any) => p.id).filter(Boolean);
-    const imagesMap = new Map<number, Array<{ url: string; mediaId: number; ordering: number }>>();
-    
-    if (productIds.length > 0) {
-      const placeholders = productIds.map(() => '?').join(',');
-      const imagesSql = `\
-        SELECT pm2.virtuemart_product_id, med.file_url, pm2.virtuemart_media_id as mediaId, pm2.ordering
-        FROM jos_virtuemart_product_medias pm2
-        INNER JOIN jos_virtuemart_medias med ON pm2.virtuemart_media_id = med.virtuemart_media_id
-        WHERE pm2.virtuemart_product_id IN (${placeholders})
-          AND med.published = 1
-        ORDER BY pm2.virtuemart_product_id ASC, pm2.ordering ASC
+      // Get total count
+      const countQuery = `\
+        SELECT COUNT(DISTINCT p.virtuemart_product_id) as total
+        FROM jos_virtuemart_products p
+        INNER JOIN jos_virtuemart_products_ru_ru pr ON p.virtuemart_product_id = pr.virtuemart_product_id
+        LEFT JOIN jos_virtuemart_product_categories pc ON p.virtuemart_product_id = pc.virtuemart_product_id
+        WHERE 1=1 ${whereConditions}
       `;
-      const imagesResult = await this.dataSource.query(imagesSql, productIds);
+      const [countRows] = await this.dataSource.query(countQuery, params);
+      const total = parseInt(countRows.total);
 
-      imagesResult.forEach((img: any) => {
-        const pid = img.virtuemart_product_id;
-        const url = this.convertToAbsoluteUrl(img.file_url);
-        if (!imagesMap.has(pid)) {
-          imagesMap.set(pid, []);
-        }
-        imagesMap.get(pid)!.push({ 
-          url, 
-          mediaId: img.mediaId,
-          ordering: img.ordering || 0
+      // Get products with all images
+      const sortField = query.sortBy === 'price' ? 'ppr.product_price' : 'p.virtuemart_product_id';
+      const sortOrder = query.sortOrder === 'asc' ? 'ASC' : 'DESC';
+
+      const productsQuery = `\
+        SELECT 
+          p.virtuemart_product_id as id,
+          pr.product_name as name,
+          pr.slug,
+          p.product_sku as sku,
+          COALESCE(pc.virtuemart_category_id, 0) as categoryId,
+          COALESCE(pm.virtuemart_manufacturer_id, 0) as brandId,
+          COALESCE(MIN(ppr.product_price), 0) as product_price,
+          p.product_in_stock,
+          p.published,
+          p.product_available_date as availableDate,
+          p.virtuemart_product_id as virtuemart_id
+        FROM jos_virtuemart_products p
+        INNER JOIN jos_virtuemart_products_ru_ru pr ON p.virtuemart_product_id = pr.virtuemart_product_id
+        LEFT JOIN jos_virtuemart_product_categories pc ON p.virtuemart_product_id = pc.virtuemart_product_id
+        LEFT JOIN jos_virtuemart_product_manufacturers pm ON p.virtuemart_product_id = pm.virtuemart_product_id
+        LEFT JOIN jos_virtuemart_product_prices ppr ON p.virtuemart_product_id = ppr.virtuemart_product_id
+        LEFT JOIN jos_virtuemart_manufacturers m ON pm.virtuemart_manufacturer_id = m.virtuemart_manufacturer_id
+        WHERE 1=1 ${whereConditions}
+        GROUP BY p.virtuemart_product_id, pr.product_name, pr.slug, p.product_sku, 
+                 pc.virtuemart_category_id, pm.virtuemart_manufacturer_id,
+                 p.product_in_stock, p.published, p.product_available_date
+        ORDER BY ${sortField} ${sortOrder}
+        LIMIT ? OFFSET ?
+      `;
+
+      const products = await this.dataSource.query(productsQuery, [...params, pageSize, offset]);
+
+      // Fetch images for all products
+      const productIds = products.map((p: any) => p.id).filter(Boolean);
+      const imagesMap = new Map<number, Array<{ url: string; mediaId: number; ordering: number }>>();
+      
+      if (productIds.length > 0) {
+        const placeholders = productIds.map(() => '?').join(',');
+        const imagesSql = `\
+          SELECT pm2.virtuemart_product_id, med.file_url, pm2.virtuemart_media_id as mediaId, pm2.ordering
+          FROM jos_virtuemart_product_medias pm2
+          INNER JOIN jos_virtuemart_medias med ON pm2.virtuemart_media_id = med.virtuemart_media_id
+          WHERE pm2.virtuemart_product_id IN (${placeholders})
+            AND med.published = 1
+          ORDER BY pm2.virtuemart_product_id ASC, pm2.ordering ASC
+        `;
+        const imagesResult = await this.dataSource.query(imagesSql, productIds);
+
+        imagesResult.forEach((img: any) => {
+          const pid = img.virtuemart_product_id;
+          const url = this.convertToAbsoluteUrl(img.file_url);
+          if (!imagesMap.has(pid)) {
+            imagesMap.set(pid, []);
+          }
+          imagesMap.get(pid)!.push({ 
+            url, 
+            mediaId: img.mediaId,
+            ordering: img.ordering || 0
+          });
         });
-      });
+      }
+
+      // Convert products to include images array with media IDs
+      const items = products.map((product: any) => ({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        sku: product.sku,
+        categoryId: product.categoryId,
+        brandId: product.brandId,
+        price: parseFloat(String(product.product_price || 0)),
+        product_in_stock: product.product_in_stock,
+        published: product.published,
+        availableDate: product.availableDate,
+        virtuemart_id: product.virtuemart_id,
+        images: imagesMap.get(product.id) || [],
+      }));
+
+      return {
+        items,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    } catch (error: any) {
+      console.error('[DEBUG] findAll error:', error.message);
+      console.error('[DEBUG] SQL:', error.sql);
+      console.error('[DEBUG] Params:', error.parameters);
+      throw error;
     }
-
-    // Convert products to include images array with media IDs
-    const items = products.map((product: any) => ({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      sku: product.sku,
-      categoryId: product.categoryId,
-      brandId: product.brandId,
-      price: parseFloat(String(product.product_price || 0)),
-      product_in_stock: product.product_in_stock,
-      published: product.published,
-      availableDate: product.availableDate,
-      virtuemart_id: product.virtuemart_id,
-      images: imagesMap.get(product.id) || [],
-    }));
-
-    return {
-      items,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    };
   }
 
   async findById(id: number) {

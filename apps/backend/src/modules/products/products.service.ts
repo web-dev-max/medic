@@ -60,10 +60,15 @@ export class ProductsService {
     }
 
     if (search) {
-      // OPTIMIZATION: Search ONLY by product name (not description, sku, etc.)
+      // OPTIMIZATION: Search by product name, short description, and slug
       // Case-insensitive search using MySQL LIKE with utf8mb4_unicode_ci collation
-      whereConditions.push('pr.product_name LIKE ?');
-      params.push(`%${search}%`);
+      const searchParam = `%${search}%`;
+      whereConditions.push(`(
+        pr.product_name LIKE ? 
+        OR pr.product_s_desc LIKE ?
+        OR pr.slug LIKE ?
+      )`);
+      params.push(searchParam, searchParam, searchParam);
     }
 
     // Custom field filter (format: fieldId:value1|value2|value3)
@@ -299,6 +304,112 @@ export class ProductsService {
       specifications: {},
       isActive: product.isActive === 1,
     };
+  }
+
+  /**
+   * Get category path for a product by slug
+   */
+  async getProductCategoryPathFromSlug(slug: string): Promise<Array<{ id: number; name: string; slug: string }>> {
+    // First get the product ID
+    const product = await this.dataSource.query(
+      `SELECT virtuemart_product_id AS id FROM jos_virtuemart_products WHERE slug = ?`,
+      [slug]
+    );
+
+    if (!product || !product[0]) {
+      return [];
+    }
+
+    return this.getProductCategoryPath(Number(product[0].id));
+  }
+
+  /**
+   * Get category hierarchy for a product
+   */
+  async getProductCategoryPath(productId: number): Promise<Array<{ id: number; name: string; slug: string }>> {
+    // Get all categories for this product
+    const sql = `
+      SELECT 
+        c.virtuemart_category_id AS id,
+        cr.category_name AS name,
+        cr.slug AS slug,
+        ccp.category_parent_id AS parentId
+      FROM jos_virtuemart_product_categories pc
+      INNER JOIN jos_virtuemart_categories c 
+        ON pc.virtuemart_category_id = c.virtuemart_category_id
+      INNER JOIN jos_virtuemart_categories_ru_ru cr 
+        ON c.virtuemart_category_id = cr.virtuemart_category_id
+      LEFT JOIN jos_virtuemart_category_categories ccp 
+        ON c.virtuemart_category_id = ccp.category_child_id
+      WHERE pc.virtuemart_product_id = ?
+        AND c.published = 1
+      ORDER BY c.ordering ASC
+    `;
+
+    const categories = await this.dataSource.query(sql, [productId]);
+    
+    if (categories.length === 0) {
+      return [];
+    }
+
+    // Build paths for all categories (take the first/primary one)
+    // For simplicity, we'll return the first category's path
+    if (categories.length > 0) {
+      const primaryCategory = categories[0];
+      const path: Array<{ id: number; name: string; slug: string }> = [];
+      
+      // Build path by traversing up from primary category
+      let currentId: number | null = Number(primaryCategory.id);
+      const visited = new Set<number>();
+      
+      while (currentId) {
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+
+        const cat = categories.find((c: any) => Number(c.id) === currentId);
+        if (cat) {
+          path.unshift({
+            id: Number(cat.id),
+            name: cat.name || '',
+            slug: cat.slug || '',
+          });
+          currentId = (cat as any).parentId ? Number((cat as any).parentId) : null;
+        } else {
+          // Fetch parent from database
+          const parentRaw: any = await this.dataSource.query(
+            `SELECT virtuemart_category_id AS id, category_parent_id AS parentId
+             FROM jos_virtuemart_categories
+             WHERE virtuemart_category_id = ?`,
+            [currentId]
+          );
+          
+          if (parentRaw && parentRaw[0]) {
+            const parentId: number | null = (parentRaw[0] as any).parentId ? Number((parentRaw[0] as any).parentId) : null;
+            // Fetch name for parent
+            const nameResult = await this.dataSource.query(
+              `SELECT category_name AS name, slug FROM jos_virtuemart_categories_ru_ru 
+               WHERE virtuemart_category_id = ?`,
+              [currentId]
+            );
+            
+            if (nameResult && nameResult[0]) {
+              path.unshift({
+                id: currentId,
+                name: nameResult[0].name || '',
+                slug: nameResult[0].slug || '',
+              });
+            }
+            currentId = parentId;
+          } else {
+            currentId = null;
+          }
+        }
+      }
+      
+      return path;
+    }
+
+    return [];
   }
 
   private convertToAbsoluteUrl(relativePath: string): string {
