@@ -83,7 +83,7 @@ export default function ContactsPage() {
           />
           </div>
         </div>
-
+d72ox6VIPbg2FE7Fy5
         {/* Messengers section */}
         <div className="mt-12 rounded-xl border border-border bg-background-alt p-8">
           <h2 className="mb-6 text-2xl font-bold text-text-primary">Мессенджеры</h2>

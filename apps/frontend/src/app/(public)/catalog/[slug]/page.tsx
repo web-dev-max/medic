@@ -8,15 +8,8 @@ interface CategoryPageProps {
   searchParams: { [key: string]: string | string[] | undefined };
 }
 
-export async function generateStaticParams() {
-  try {
-    const categories = await apiClient.getCatalogCategories();
-    const categorized = categories as unknown[];
-    return categorized.map((cat: unknown) => ({ slug: (cat as { slug: string }).slug }));
-  } catch {
-    return [];
-  }
-}
+// Force dynamic rendering because we use searchParams
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: CategoryPageProps) {
   try {
