@@ -8,15 +8,8 @@ interface ProductPageRouteProps {
   params: { slug: string };
 }
 
-export async function generateStaticParams() {
-  try {
-    const data = await apiClient.getProducts({ pageSize: 100 });
-    const products = (data as unknown as { items?: unknown[] })?.items || [];
-    return (products as unknown[]).map((p: unknown) => ({ slug: (p as { slug: string }).slug }));
-  } catch {
-    return [];
-  }
-}
+// Force dynamic rendering because we use searchParams and dynamic product data
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: ProductPageRouteProps): Promise<Metadata> {
   try {

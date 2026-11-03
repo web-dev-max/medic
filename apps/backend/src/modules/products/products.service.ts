@@ -310,9 +310,9 @@ export class ProductsService {
    * Get category path for a product by slug
    */
   async getProductCategoryPathFromSlug(slug: string): Promise<Array<{ id: number; name: string; slug: string }>> {
-    // First get the product ID
+    // First get the product ID - slug is in the Russian translation table
     const product = await this.dataSource.query(
-      `SELECT virtuemart_product_id AS id FROM jos_virtuemart_products WHERE slug = ?`,
+      `SELECT p.virtuemart_product_id AS id FROM jos_virtuemart_products p INNER JOIN jos_virtuemart_products_ru_ru pr ON p.virtuemart_product_id = pr.virtuemart_product_id WHERE pr.slug = ?`,
       [slug]
     );
 
@@ -375,30 +375,23 @@ export class ProductsService {
           });
           currentId = (cat as any).parentId ? Number((cat as any).parentId) : null;
         } else {
-          // Fetch parent from database
+          // Fetch parent from database with Russian translation
           const parentRaw: any = await this.dataSource.query(
-            `SELECT virtuemart_category_id AS id, category_parent_id AS parentId
-             FROM jos_virtuemart_categories
-             WHERE virtuemart_category_id = ?`,
+            `SELECT c.virtuemart_category_id AS id, cr.category_name AS name, cr.slug AS slug, ccp.category_parent_id AS parentId
+             FROM jos_virtuemart_categories c
+            INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
+            LEFT JOIN jos_virtuemart_category_categories ccp ON c.virtuemart_category_id = ccp.category_child_id
+             WHERE c.virtuemart_category_id = ?`,
             [currentId]
           );
           
           if (parentRaw && parentRaw[0]) {
             const parentId: number | null = (parentRaw[0] as any).parentId ? Number((parentRaw[0] as any).parentId) : null;
-            // Fetch name for parent
-            const nameResult = await this.dataSource.query(
-              `SELECT category_name AS name, slug FROM jos_virtuemart_categories_ru_ru 
-               WHERE virtuemart_category_id = ?`,
-              [currentId]
-            );
-            
-            if (nameResult && nameResult[0]) {
-              path.unshift({
-                id: currentId,
-                name: nameResult[0].name || '',
-                slug: nameResult[0].slug || '',
-              });
-            }
+            path.unshift({
+              id: currentId,
+              name: parentRaw[0].name || '',
+              slug: parentRaw[0].slug || '',
+            });
             currentId = parentId;
           } else {
             currentId = null;
