@@ -1,5 +1,6 @@
 import { type Metadata } from 'next';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { WarrantyHtmlContent } from '@/components/warranty/WarrantyHtmlContent';
 import {
   InfoSection,
   InfoCard,
@@ -49,13 +50,25 @@ export default async function WarrantyPage() {
   const pageTitle = content?.title || 'Гарантия — Медиком Плюс';
   const pageContent = content?.content || '';
 
-  // If we have custom HTML content, render it
+  // If we have custom HTML content, render it as React components
   if (pageContent) {
     return (
-      <div 
-        className="section max-w-5xl mx-auto"
-        dangerouslySetInnerHTML={{ __html: pageContent }}
-      />
+      <div className="section">
+        <div className="container max-w-5xl">
+          <Breadcrumbs items={[{ label: 'Гарантия' }]} />
+
+          <h1 className="mb-4 text-3xl font-bold text-text-primary md:text-4xl lg:text-5xl">
+            {pageTitle}
+          </h1>
+
+          <p className="mb-10 max-w-3xl text-lg text-text-secondary">
+            Компания «Медиком Плюс» предоставляет официальную гарантию производителя на всё
+            поставляемое медицинское и стоматологическое оборудование.
+          </p>
+
+          <WarrantyHtmlContent html={pageContent} />
+        </div>
+      </div>
     );
   }
 

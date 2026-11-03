@@ -7,7 +7,7 @@ export const APP_NAME = 'Медиком Плюс';
 
 export const CONTACT_INFO = {
   address: 'Краснодар, ул. им. Мачуги В.Н., 171/1',
-  phones: ['8 (918) 211-43-01', '8 (861) 234-16-99'],
+  phones: ['+7 (918) 211-43-01', '+7 (861) 234-16-99'],
   email: 'medikom_plus@mail.ru',
   workHours: 'Пн–Пт 09:00–18:00',
   lat: 45.0355,
@@ -15,8 +15,8 @@ export const CONTACT_INFO = {
   messengers: [
     {
       name: 'MAX',
-      phone: '8 (918) 417-17-77',
-      href: 'https://max.ru/lp/89184171777',
+      phone: '+7 (918) 417-17-77',
+      href: 'https://max.ru/lp/+79184171777',
     },
   ],
 } as const;
