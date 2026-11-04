@@ -24,9 +24,9 @@ export function ProductBreadcrumbs({ productSlug, productName }: ProductBreadcru
 
   const items: Array<{ label: string; href?: string }> = [
     { label: 'Каталог', href: '/catalog' },
-    ...categoryPath.map((cat, index) => ({
+    ...categoryPath.map((cat) => ({
       label: cat.name,
-      href: index === categoryPath.length - 1 ? undefined : `/catalog/${cat.slug}`,
+      href: `/catalog/${cat.slug}`,
     })),
     { label: productName, href: undefined },
   ];

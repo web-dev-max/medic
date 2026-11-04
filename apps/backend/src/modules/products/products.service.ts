@@ -325,84 +325,102 @@ export class ProductsService {
 
   /**
    * Get category hierarchy for a product
+   * Excludes root categories (parent_id=0) — frontend shows "Каталог" instead.
    */
   async getProductCategoryPath(productId: number): Promise<Array<{ id: number; name: string; slug: string }>> {
-    // Get all categories for this product
-    const sql = `
-      SELECT 
-        c.virtuemart_category_id AS id,
-        cr.category_name AS name,
-        cr.slug AS slug,
-        ccp.category_parent_id AS parentId
-      FROM jos_virtuemart_product_categories pc
-      INNER JOIN jos_virtuemart_categories c 
-        ON pc.virtuemart_category_id = c.virtuemart_category_id
-      INNER JOIN jos_virtuemart_categories_ru_ru cr 
-        ON c.virtuemart_category_id = cr.virtuemart_category_id
-      LEFT JOIN jos_virtuemart_category_categories ccp 
-        ON c.virtuemart_category_id = ccp.category_child_id
-      WHERE pc.virtuemart_product_id = ?
-        AND c.published = 1
-      ORDER BY c.ordering ASC
-    `;
+    // Get ALL categories for this product (not just LIMIT 1)
+    const categories: any = await this.dataSource.query(
+      `SELECT c.virtuemart_category_id AS id, cr.category_name AS name, cr.slug AS slug
+       FROM jos_virtuemart_product_categories pc
+       INNER JOIN jos_virtuemart_categories c ON pc.virtuemart_category_id = c.virtuemart_category_id
+       INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
+       WHERE pc.virtuemart_product_id = ? AND c.published = 1
+       ORDER BY c.ordering ASC`,
+      [productId]
+    );
 
-    const categories = await this.dataSource.query(sql, [productId]);
-    
-    if (categories.length === 0) {
+    if (!categories || categories.length === 0) {
       return [];
     }
 
-    // Build paths for all categories (take the first/primary one)
-    // For simplicity, we'll return the first category's path
-    if (categories.length > 0) {
-      const primaryCategory = categories[0];
-      const path: Array<{ id: number; name: string; slug: string }> = [];
+    // Find the most specific category (deepest in hierarchy)
+    // This is the category that has a parent or is most nested
+    let primaryCategory = null;
+    
+    // Prefer categories that are NOT root (have a parent)
+    for (const cat of categories) {
+      const parentRow: any = await this.dataSource.query(
+        `SELECT category_parent_id
+         FROM jos_virtuemart_category_categories
+         WHERE category_child_id = ?
+         LIMIT 1`,
+        [cat.id]
+      );
       
-      // Build path by traversing up from primary category
-      let currentId: number | null = Number(primaryCategory.id);
-      const visited = new Set<number>();
-      
-      while (currentId) {
-        if (visited.has(currentId)) break;
-        visited.add(currentId);
-
-        const cat = categories.find((c: any) => Number(c.id) === currentId);
-        if (cat) {
-          path.unshift({
-            id: Number(cat.id),
-            name: cat.name || '',
-            slug: cat.slug || '',
-          });
-          currentId = (cat as any).parentId ? Number((cat as any).parentId) : null;
-        } else {
-          // Fetch parent from database with Russian translation
-          const parentRaw: any = await this.dataSource.query(
-            `SELECT c.virtuemart_category_id AS id, cr.category_name AS name, cr.slug AS slug, ccp.category_parent_id AS parentId
-             FROM jos_virtuemart_categories c
-            INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
-            LEFT JOIN jos_virtuemart_category_categories ccp ON c.virtuemart_category_id = ccp.category_child_id
-             WHERE c.virtuemart_category_id = ?`,
-            [currentId]
-          );
-          
-          if (parentRaw && parentRaw[0]) {
-            const parentId: number | null = (parentRaw[0] as any).parentId ? Number((parentRaw[0] as any).parentId) : null;
-            path.unshift({
-              id: currentId,
-              name: parentRaw[0].name || '',
-              slug: parentRaw[0].slug || '',
-            });
-            currentId = parentId;
-          } else {
-            currentId = null;
-          }
-        }
+      if (parentRow && parentRow[0] && parentRow[0].category_parent_id) {
+        primaryCategory = cat;
+        break;
       }
-      
-      return path;
+    }
+    
+    // If all categories are root, use the first one
+    if (!primaryCategory) {
+      primaryCategory = categories[0];
     }
 
-    return [];
+    // Build path by traversing up the hierarchy using junction table
+    const fullPath: Array<{ id: number; name: string; slug: string; isRoot: boolean }> = [];
+    let currentId = Number(primaryCategory.id);
+    let currentCat = primaryCategory;
+    const visited = new Set<number>();
+
+    // Collect categories from leaf to root
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+
+      // Check if this is a root category (parent_id = 0)
+      const parentRow: any = await this.dataSource.query(
+        `SELECT category_parent_id
+         FROM jos_virtuemart_category_categories
+         WHERE category_child_id = ?
+         LIMIT 1`,
+        [currentId]
+      );
+
+      const isRoot = !parentRow || !parentRow[0] || !parentRow[0].category_parent_id;
+
+      fullPath.push({
+        id: currentId,
+        name: currentCat.name || '',
+        slug: currentCat.slug || '',
+        isRoot,
+      });
+
+      if (isRoot) {
+        break; // Don't include root categories — frontend will show "Каталог"
+      }
+
+      // Fetch parent category details
+      const parentCat: any = await this.dataSource.query(
+        `SELECT c.virtuemart_category_id AS id, cr.category_name AS name, cr.slug AS slug
+         FROM jos_virtuemart_categories c
+         INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
+         WHERE c.virtuemart_category_id = ?`,
+        [Number(parentRow[0].category_parent_id)]
+      );
+
+      if (!parentCat || !parentCat[0]) {
+        break;
+      }
+
+      currentCat = parentCat[0];
+      currentId = Number(parentCat[0].id);
+    }
+
+    // Reverse to get root-to-leaf order, then filter out root categories
+    const path = fullPath.reverse().filter(cat => !cat.isRoot);
+
+    return path;
   }
 
   private convertToAbsoluteUrl(relativePath: string): string {

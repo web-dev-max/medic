@@ -223,59 +223,74 @@ export class CategoriesService {
 
   /**
    * Get full category hierarchy path (breadcrumbs) by slug.
-   * Returns array from root to current category.
+   * Returns array from root to current category, EXCLUDING root categories (parent_id=0).
+   * Root categories are replaced by "Каталог" link on the frontend.
    */
   async getCategoryPath(slug: string): Promise<Array<{ id: number; name: string; slug: string }>> {
-    // First get the category itself
-    const category = await this.dataSource
-      .createQueryBuilder()
-      .select(['c.virtuemart_category_id AS id', 'cr.category_name AS name', 'cr.slug AS slug', 'ccp.category_parent_id AS parentId'])
-      .from('jos_virtuemart_categories', 'c')
-      .innerJoin('jos_virtuemart_categories_ru_ru', 'cr', 'c.virtuemart_category_id = cr.virtuemart_category_id')
-      .leftJoin('jos_virtuemart_category_categories', 'ccp', 'c.virtuemart_category_id = ccp.category_child_id')
-      .where('cr.slug = :slug', { slug })
-      .getRawOne();
+    // Get the category by slug
+    const category: any = await this.dataSource.query(
+      `SELECT c.virtuemart_category_id AS id, cr.category_name AS name, cr.slug AS slug
+       FROM jos_virtuemart_categories c
+       INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
+       WHERE cr.slug = ?`,
+      [slug]
+    );
 
-    if (!category) {
+    if (!category || !category[0]) {
       return [];
     }
 
-    // Build path by traversing up the hierarchy
-    const path: Array<{ id: number; name: string; slug: string }> = [];
-    let currentId: number | null = Number(category.id);
-    let visited = new Set<number>();
-    visited.add(currentId);
+    // Build full path by traversing up the hierarchy using junction table
+    const fullPath: Array<{ id: number; name: string; slug: string; isRoot: boolean }> = [];
+    let currentId = Number(category[0].id);
+    let currentCat = category[0];
+    const visited = new Set<number>();
 
-    // Traverse up to build path (reverse order)
-    while (currentId) {
-      const parentRaw: any = await this.dataSource
-        .createQueryBuilder()
-        .select(['c.virtuemart_category_id AS id', 'cr.category_name AS name', 'cr.slug AS slug', 'ccp.category_parent_id AS parentId'])
-        .from('jos_virtuemart_categories', 'c')
-        .innerJoin('jos_virtuemart_categories_ru_ru', 'cr', 'c.virtuemart_category_id = cr.virtuemart_category_id')
-        .leftJoin('jos_virtuemart_category_categories', 'ccp', 'c.virtuemart_category_id = ccp.category_child_id')
-        .where('c.virtuemart_category_id = :id', { id: currentId })
-        .getRawOne();
+    // Collect categories from leaf to root
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
 
-      if (!parentRaw) break;
+      // Check if this is a root category (parent_id = 0)
+      const parentRow: any = await this.dataSource.query(
+        `SELECT category_parent_id
+         FROM jos_virtuemart_category_categories
+         WHERE category_child_id = ?
+         LIMIT 1`,
+        [currentId]
+      );
 
-      path.unshift({
-        id: Number(parentRaw.id),
-        name: parentRaw.name || '',
-        slug: parentRaw.slug || '',
+      const isRoot = !parentRow || !parentRow[0] || !parentRow[0].category_parent_id;
+
+      fullPath.push({
+        id: currentId,
+        name: currentCat.name || '',
+        slug: currentCat.slug || '',
+        isRoot,
       });
 
-      const parentId = parentRaw.parentId ? Number(parentRaw.parentId) : null;
-      
-      // Prevent infinite loops
-      if (parentId && visited.has(parentId)) break;
-      if (parentId) {
-        visited.add(parentId);
-        currentId = parentId;
-      } else {
-        currentId = null;
+      if (isRoot) {
+        break; // Don't include root categories — frontend will show "Каталог"
       }
+
+      // Fetch parent category details
+      const parentCat: any = await this.dataSource.query(
+        `SELECT c.virtuemart_category_id AS id, cr.category_name AS name, cr.slug AS slug
+         FROM jos_virtuemart_categories c
+         INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
+         WHERE c.virtuemart_category_id = ?`,
+        [Number(parentRow[0].category_parent_id)]
+      );
+
+      if (!parentCat || !parentCat[0]) {
+        break;
+      }
+
+      currentCat = parentCat[0];
+      currentId = Number(parentCat[0].id);
     }
+
+    // Reverse to get root-to-leaf order, then filter out root categories
+    const path = fullPath.reverse().filter(cat => !cat.isRoot);
 
     return path;
   }

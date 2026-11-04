@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
-interface SearchResult {
+export interface SearchResult {
   products: Array<{
     id: number;
     name: string;
