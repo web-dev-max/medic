@@ -8,28 +8,53 @@ export default function NewCategoryPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
+    categoryCode: '',
     slug: '',
     description: '',
-    parentId: '',
-    sortOrder: '0',
     seoTitle: '',
     seoDescription: '',
     published: true,
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim() || formData.name.trim().length < 2) {
+      newErrors.name = 'Название должно содержать минимум 2 символа';
+    }
+
+    if (!formData.categoryCode.trim()) {
+      newErrors.categoryCode = 'Номер категории обязателен';
+    } else if (formData.categoryCode.length > 50) {
+      newErrors.categoryCode = 'Номер категории не может превышать 50 символов';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setErrors({});
+    
+    if (!validate()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -41,21 +66,27 @@ export default function NewCategoryPage() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...formData,
-          parentId: formData.parentId ? parseInt(formData.parentId) : 0,
-          sortOrder: parseInt(formData.sortOrder) || 0,
+          name: formData.name.trim(),
+          categoryCode: formData.categoryCode.trim(),
+          slug: formData.slug.trim(),
+          description: formData.description.trim(),
+          published: formData.published,
         }),
       });
 
       if (!response.ok) {
         const data = await response.json();
+        if (response.status === 400 && data.message) {
+          setErrors({ form: data.message });
+          return;
+        }
         throw new Error(data.message || 'Failed to create category');
       }
 
       router.push('/admin/categories');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Не удалось создать категорию';
-      setError(errorMessage);
+      setErrors({ form: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -74,9 +105,9 @@ export default function NewCategoryPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-lg shadow p-6 space-y-6">
-        {error && (
+        {errors.form && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
+            {errors.form}
           </div>
         )}
 
@@ -88,55 +119,47 @@ export default function NewCategoryPage() {
             <input
               type="text"
               name="name"
-              required
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                errors.name ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
+            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Slug
+              Код категории *
             </label>
             <input
               type="text"
-              name="slug"
-              value={formData.slug}
+              name="categoryCode"
+              value={formData.categoryCode}
               onChange={handleChange}
-              placeholder="url-kategorii"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              placeholder="Например: COMP-001"
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                errors.categoryCode ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
+            <p className="mt-1 text-xs text-gray-500">Уникальный код категории. Используется для привязки товаров к соответствующей категории.</p>
+            {errors.categoryCode && <p className="mt-1 text-sm text-red-600">{errors.categoryCode}</p>}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Родительская категория
-            </label>
-            <input
-              type="number"
-              name="parentId"
-              value={formData.parentId}
-              onChange={handleChange}
-              placeholder="ID родительской категории"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Порядок
-            </label>
-            <input
-              type="number"
-              name="sortOrder"
-              value={formData.sortOrder}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Slug (URL категории)
+          </label>
+          <input
+            type="text"
+            name="slug"
+            value={formData.slug}
+            onChange={handleChange}
+            placeholder="url-kategorii"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          />
+          <p className="mt-1 text-sm text-gray-500">Оставьте пустым для автогенерации из названия</p>
         </div>
 
         <div>
@@ -152,30 +175,32 @@ export default function NewCategoryPage() {
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            SEO заголовок
-          </label>
-          <input
-            type="text"
-            name="seoTitle"
-            value={formData.seoTitle}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              SEO заголовок
+            </label>
+            <input
+              type="text"
+              name="seoTitle"
+              value={formData.seoTitle}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            SEO описание
-          </label>
-          <textarea
-            name="seoDescription"
-            rows={3}
-            value={formData.seoDescription}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              SEO описание
+            </label>
+            <textarea
+              name="seoDescription"
+              rows={3}
+              value={formData.seoDescription}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
         </div>
 
         <div className="flex items-center">

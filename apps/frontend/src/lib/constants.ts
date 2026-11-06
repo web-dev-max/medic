@@ -16,70 +16,7 @@ export const CONTACT_INFO = {
     {
       name: 'MAX',
       phone: '+7 (918) 417-17-77',
-      href: 'https://max.ru/lp/+79184171777',
+      href: 'https://max.ru/c/-72704411339278/AaGs12HJe_k',
     },
   ],
 } as const;
-
-export const CATEGORIES = [
-  {
-    id: 1,
-    name: 'Стоматологические установки',
-    slug: 'dental-units',
-    image: '/images/categories/dental-unit.svg',
-  },
-  {
-    id: 2,
-    name: 'Стерилизационное оборудование',
-    slug: 'sterilization',
-    image: '/images/categories/sterilization.svg',
-  },
-  {
-    id: 3,
-    name: 'Рентгенодиагностика',
-    slug: 'x-ray-diagnostic',
-    image: '/images/categories/xray.svg',
-  },
-  {
-    id: 4,
-    name: 'Компрессоры и аспирация',
-    slug: 'compressors',
-    image: '/images/categories/compressor.svg',
-  },
-  {
-    id: 5,
-    name: 'Мебель',
-    slug: 'furniture',
-    image: '/images/categories/furniture.svg',
-  },
-  {
-    id: 6,
-    name: 'Инструменты и наконечники',
-    slug: 'instruments',
-    image: '/images/categories/instruments.svg',
-  },
-  {
-    id: 7,
-    name: 'Лабораторное оборудование',
-    slug: 'laboratory',
-    image: '/images/categories/laboratory.svg',
-  },
-  {
-    id: 8,
-    name: 'Расходные материалы',
-    slug: 'consumables',
-    image: '/images/categories/consumables.svg',
-  },
-  {
-    id: 9,
-    name: 'Имплантология',
-    slug: 'implantology',
-    image: '/images/categories/implantology.svg',
-  },
-  {
-    id: 10,
-    name: 'Стоматологические лазеры и свет',
-    slug: 'lasers',
-    image: '/images/categories/lasers.svg',
-  },
-] as const;

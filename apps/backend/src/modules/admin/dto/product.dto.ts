@@ -165,6 +165,11 @@ export class ProductQueryDto {
   brandId?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  status?: number;
+
+  @IsOptional()
   @IsString()
   sortBy?: string = 'createdAt';
 

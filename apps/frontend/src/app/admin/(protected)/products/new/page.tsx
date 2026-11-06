@@ -1,17 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PhotoManager from '../PhotoManager';
 
+interface Category {
+  id: number;
+  name: string;
+  categoryCode?: string;
+}
+
 export default function NewProductPage() {
-  const _router = useRouter();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
     categoryId: '',
-    brandId: '',
     shortDescription: '',
     description: '',
     price: '',
@@ -20,10 +25,42 @@ export default function NewProductPage() {
     slug: '',
     published: true,
   });
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [createdProductId, setCreatedProductId] = useState<number | null>(null);
   const [productCreated, setProductCreated] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
+      if (!token) return;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/categories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.items || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -31,44 +68,70 @@ export default function NewProductPage() {
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Название обязательно';
+    }
+
+    if (!formData.categoryId) {
+      newErrors.categoryId = 'Выберите категорию';
+    }
+
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      newErrors.price = 'Укажите корректную цену';
+    }
+
+    if (!formData.shortDescription.trim()) {
+      newErrors.shortDescription = 'Краткое описание обязательно';
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Полное описание обязательно';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setErrors({});
+    
+    if (!validate()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
       const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
-      
-      // Validate required fields
-      if (!formData.categoryId || !formData.categoryId.trim()) {
-        throw new Error('Категория обязательна для заполнения');
-      }
-      
+
       // Build payload with correct field names for backend DTO
       const payload: Record<string, unknown> = {
-        name: formData.name,
+        name: formData.name.trim(),
         virtuemart_category_id: parseInt(formData.categoryId),
-        shortDescription: formData.shortDescription,
-        description: formData.description,
+        shortDescription: formData.shortDescription.trim(),
+        description: formData.description.trim(),
         price: parseFloat(formData.price) || 0,
         seoTitle: formData.seoTitle,
         seoDescription: formData.seoDescription,
         slug: formData.slug,
         published: formData.published,
       };
-      
-      // Only add manufacturer if provided (optional field)
-      if (formData.brandId && formData.brandId.trim()) {
-        payload.virtuemart_manufacturer_id = parseInt(formData.brandId);
-      }
-      
+
       // Only add sku if provided
       if (formData.sku && formData.sku.trim()) {
         payload.sku = formData.sku;
       }
-      
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/products`, {
         method: 'POST',
         headers: {
@@ -89,8 +152,55 @@ export default function NewProductPage() {
       setLoading(false);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Не удалось создать товар';
-      setError(errorMessage);
+      setErrors({ form: errorMessage });
       setLoading(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !createdProductId) return;
+
+    setUploadingPhotos(true);
+    setPhotoError('');
+
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('photos', files[i]);
+      }
+
+      const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
+      if (!token) {
+        throw new Error('Не авторизован');
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/uploads/product/${createdProductId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || 'Ошибка загрузки');
+      }
+
+      // Reload to show new photos
+      window.location.reload();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Не удалось загрузить фото';
+      setPhotoError(errorMessage);
+    } finally {
+      setUploadingPhotos(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -107,9 +217,9 @@ export default function NewProductPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-lg shadow p-6 space-y-6">
-        {error && (
+        {errors.form && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
+            {errors.form}
           </div>
         )}
 
@@ -121,11 +231,13 @@ export default function NewProductPage() {
             <input
               type="text"
               name="name"
-              required
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                errors.name ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
+            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
           </div>
 
           <div>
@@ -145,30 +257,26 @@ export default function NewProductPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Категория
+              Категория *
             </label>
-            <input
-              type="number"
+            <select
               name="categoryId"
               value={formData.categoryId}
               onChange={handleChange}
-              placeholder="ID категории"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Бренд
-            </label>
-            <input
-              type="number"
-              name="brandId"
-              value={formData.brandId}
-              onChange={handleChange}
-              placeholder="ID бренда"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
+              disabled={loadingCategories}
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100 ${
+                errors.categoryId ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              <option value="">Выберите категорию</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name} — {cat.categoryCode || cat.id}
+                </option>
+              ))}
+            </select>
+            {errors.categoryId && <p className="mt-1 text-sm text-red-600">{errors.categoryId}</p>}
+            {loadingCategories && <p className="mt-1 text-sm text-gray-500">Загрузка категорий...</p>}
           </div>
         </div>
 
@@ -179,12 +287,14 @@ export default function NewProductPage() {
           <input
             type="number"
             name="price"
-            required
             step="0.01"
             value={formData.price}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              errors.price ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
+          {errors.price && <p className="mt-1 text-sm text-red-600">{errors.price}</p>}
         </div>
 
         <div>
@@ -193,12 +303,14 @@ export default function NewProductPage() {
           </label>
           <textarea
             name="shortDescription"
-            required
             rows={3}
             value={formData.shortDescription}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              errors.shortDescription ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
+          {errors.shortDescription && <p className="mt-1 text-sm text-red-600">{errors.shortDescription}</p>}
         </div>
 
         <div>
@@ -207,43 +319,47 @@ export default function NewProductPage() {
           </label>
           <textarea
             name="description"
-            required
             rows={6}
             value={formData.description}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              errors.description ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
+          {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              SEO заголовок
+            </label>
+            <input
+              type="text"
+              name="seoTitle"
+              value={formData.seoTitle}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              SEO описание
+            </label>
+            <textarea
+              name="seoDescription"
+              rows={3}
+              value={formData.seoDescription}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            SEO заголовок
-          </label>
-          <input
-            type="text"
-            name="seoTitle"
-            value={formData.seoTitle}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            SEO описание
-          </label>
-          <textarea
-            name="seoDescription"
-            rows={3}
-            value={formData.seoDescription}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Slug
+            Slug (URL товара)
           </label>
           <input
             type="text"
@@ -253,6 +369,7 @@ export default function NewProductPage() {
             placeholder="url-nazvanie-tovara"
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
+          <p className="mt-1 text-sm text-gray-500">Оставьте пустым для автогенерации</p>
         </div>
 
         <div className="flex items-center">
@@ -267,6 +384,38 @@ export default function NewProductPage() {
           <label htmlFor="published" className="ml-2 block text-sm text-gray-700">
             Опубликовать
           </label>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Фотографии
+          </label>
+          {photoError && (
+            <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded text-sm">
+              {photoError}
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,image/jpg"
+            onChange={handlePhotoUpload}
+            disabled={uploadingPhotos || !createdProductId}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingPhotos || !createdProductId}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {uploadingPhotos ? 'Загрузка...' : 'Добавить фото'}
+          </button>
+          <span className="ml-3 text-xs text-gray-500">JPG, PNG, WebP до 10MB</span>
+          <p className="mt-2 text-xs text-gray-500">
+            💡 Фото можно добавить после создания товара в разделе редактирования
+          </p>
         </div>
 
         <div className="flex justify-end space-x-4 pt-6">
@@ -289,11 +438,12 @@ export default function NewProductPage() {
       {productCreated && createdProductId && (
         <div className="max-w-4xl mt-6">
           <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4">
-            ✅ Товар успешно создан! Теперь добавьте фотографии.
+            ✅ Товар успешно создан! Теперь добавьте фотографии или отредактируйте товар.
           </div>
           <PhotoManager
             productId={createdProductId}
             initialPhotos={[]}
+            onPhotosChange={() => {}}
           />
           <div className="mt-4 flex gap-4">
             <Link

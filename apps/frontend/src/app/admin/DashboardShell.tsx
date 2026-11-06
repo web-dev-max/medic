@@ -53,7 +53,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     { href: '/admin', label: 'Панель управления', icon: '📊' },
     { href: '/admin/products', label: 'Товары', icon: '📦' },
     { href: '/admin/categories', label: 'Категории', icon: '📁' },
-    { href: '/admin/brands', label: 'Бренды', icon: '🏭' },
     { href: '/admin/content', label: 'Страницы', icon: '📄' },
   ], []);
 

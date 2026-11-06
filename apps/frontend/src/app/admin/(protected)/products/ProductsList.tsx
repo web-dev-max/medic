@@ -7,10 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 // Simple cookie utility (no external dependency)
 function getCookie(name: string): string | null {
   if (typeof document === 'undefined') return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name} = `);
-  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
-  return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? match[2] : null;
 }
 
 interface ProductImage {
@@ -32,6 +30,12 @@ interface Product {
   images: ProductImage[];
 }
 
+interface Category {
+  id: number;
+  name: string;
+  categoryCode?: string;
+}
+
 interface ProductsResponse {
   items: Product[];
   total: number;
@@ -49,6 +53,64 @@ export default function ProductsList({ products }: ProductsListProps) {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
+  const [categoryFilter, setCategoryFilter] = useState<string>(searchParams.get('categoryId') || 'all');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+
+  // Fetch categories for filter
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const token = getCookie('admin_token');
+        if (!token) return;
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/categories`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data.items || []);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  const applyFilters = useCallback(() => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (statusFilter !== 'all') {
+      params.set('status', statusFilter);
+    } else {
+      params.delete('status');
+    }
+    
+    if (categoryFilter !== 'all') {
+      params.set('categoryId', categoryFilter);
+    } else {
+      params.delete('categoryId');
+    }
+
+    if (search) {
+      params.set('search', search);
+      params.set('page', '1');
+    } else {
+      params.delete('search');
+      params.delete('page');
+    }
+
+    router.push(`/admin/products?${params.toString()}`);
+  }, [searchParams, statusFilter, categoryFilter, search, router]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -58,19 +120,28 @@ export default function ProductsList({ products }: ProductsListProps) {
     }
     
     const timer = setTimeout(() => {
-      const params = new URLSearchParams(searchParams);
-      if (value) {
-        params.set('search', value);
-        params.set('page', '1');
-      } else {
-        params.delete('search');
-        params.delete('page');
-      }
-      router.push(`/admin/products?${params.toString()}`);
+      applyFilters();
     }, 300);
     
     setDebounceTimer(timer);
-  }, [searchParams, router]);
+  }, [searchParams, statusFilter, categoryFilter, router]);
+
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    applyFilters();
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setCategoryFilter(value);
+    applyFilters();
+  };
+
+  const resetFilters = () => {
+    setStatusFilter('all');
+    setCategoryFilter('all');
+    setSearch('');
+    router.push('/admin/products');
+  };
 
   useEffect(() => {
     return () => {
@@ -87,6 +158,13 @@ export default function ProductsList({ products }: ProductsListProps) {
 
     try {
       const token = getCookie('admin_token');
+      
+      if (!token) {
+        alert('Не авторизован. Пожалуйста, войдите в систему.');
+        router.push('/admin/login');
+        return;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/products/${id}`, {
         method: 'DELETE',
         headers: {
@@ -95,13 +173,20 @@ export default function ProductsList({ products }: ProductsListProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete product');
+        if (response.status === 401) {
+          alert('Не авторизован. Пожалуйста, войдите в систему.');
+          router.push('/admin/login');
+          return;
+        }
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete product');
       }
 
       window.location.reload();
     } catch (error) {
       console.error('Error deleting product:', error);
-      alert('Не удалось удалить товар');
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось удалить товар';
+      alert(errorMessage);
     }
   };
 
@@ -130,6 +215,54 @@ export default function ProductsList({ products }: ProductsListProps) {
         </Link>
       </div>
 
+      {/* Filters */}
+      <div className="mb-6">
+        <div className="flex flex-wrap gap-4 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Статус
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            >
+              <option value="all">Все</option>
+              <option value="1">Опубликовано</option>
+              <option value="0">Черновик</option>
+            </select>
+          </div>
+
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Категория
+            </label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              disabled={loadingCategories}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+            >
+              <option value="all">Все</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name} — {cat.categoryCode || cat.id}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              Сбросить
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Search */}
       <div className="mb-6">
         <div className="relative max-w-md">
@@ -155,7 +288,7 @@ export default function ProductsList({ products }: ProductsListProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Артикул</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Цена</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Остаток</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Категория</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
             </tr>
@@ -188,7 +321,15 @@ export default function ProductsList({ products }: ProductsListProps) {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {parseFloat(String(product.price)).toLocaleString('ru-RU')} ₽
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{product.product_in_stock || 0}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {product.categoryId ? (
+                      <Link href={`/admin/categories/${product.categoryId}/edit`} className="text-blue-600 hover:text-blue-900">
+                        Категория {product.categoryId}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                       product.published === 1
@@ -213,7 +354,7 @@ export default function ProductsList({ products }: ProductsListProps) {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                   Товары не найдены
                 </td>
               </tr>

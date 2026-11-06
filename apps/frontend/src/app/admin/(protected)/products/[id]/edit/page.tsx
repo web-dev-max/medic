@@ -11,12 +11,17 @@ interface ProductImage {
   ordering: number;
 }
 
+interface Category {
+  id: number;
+  name: string;
+  categoryCode?: string;
+}
+
 interface Product {
   id: number;
   name: string;
   sku: string;
   categoryId: number;
-  brandId: number;
   shortDescription: string;
   description: string;
   price: number;
@@ -31,13 +36,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [product, setProduct] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
     categoryId: '',
-    brandId: '',
     shortDescription: '',
     description: '',
     price: '',
@@ -48,8 +54,31 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   });
 
   useEffect(() => {
-    fetchProduct();
+    Promise.all([fetchProduct(), fetchCategories()]);
   }, [params.id]);
+
+  const fetchCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
+      if (!token) return;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/categories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.items || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
 
   const fetchProduct = async () => {
     try {
@@ -70,7 +99,6 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         name: data.name || '',
         sku: data.sku || '',
         categoryId: data.categoryId?.toString() || '',
-        brandId: data.brandId?.toString() || '',
         shortDescription: data.shortDescription || '',
         description: data.description || '',
         price: data.price?.toString() || '',
@@ -81,7 +109,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       });
     } catch (err) {
       console.error('Error fetching product:', err);
-      setError('Не удалось загрузить товар');
+      setErrors({ form: 'Не удалось загрузить товар' });
     } finally {
       setLoading(false);
     }
@@ -93,43 +121,74 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
     }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Название обязательно';
+    }
+
+    if (!formData.categoryId) {
+      newErrors.categoryId = 'Выберите категорию';
+    }
+
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      newErrors.price = 'Укажите корректную цену';
+    }
+
+    if (!formData.shortDescription.trim()) {
+      newErrors.shortDescription = 'Краткое описание обязательно';
+    }
+
+    if (!formData.description.trim()) {
+      newErrors.description = 'Полное описание обязательно';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setErrors({});
+    
+    if (!validate()) {
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
-      
+
       // Build payload with correct field names for backend DTO
       const payload: Record<string, unknown> = {
-        name: formData.name,
-        shortDescription: formData.shortDescription,
-        description: formData.description,
+        name: formData.name.trim(),
+        shortDescription: formData.shortDescription.trim(),
+        description: formData.description.trim(),
         price: parseFloat(formData.price) || 0,
         seoTitle: formData.seoTitle,
         seoDescription: formData.seoDescription,
         slug: formData.slug,
         published: formData.published,
       };
-      
+
       // Only add category if provided
       if (formData.categoryId) {
         payload.virtuemart_category_id = parseInt(formData.categoryId);
       }
-      
-      // Only add manufacturer if provided (optional field)
-      if (formData.brandId) {
-        payload.virtuemart_manufacturer_id = parseInt(formData.brandId);
-      }
-      
+
       // Only add sku if provided
       if (formData.sku) {
         payload.sku = formData.sku;
       }
-      
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/products/${params.id}`, {
         method: 'PUT',
         headers: {
@@ -147,7 +206,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       router.push('/admin/products');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Не удалось обновить товар';
-      setError(errorMessage);
+      setErrors({ form: errorMessage });
     } finally {
       setSubmitting(false);
     }
@@ -174,9 +233,9 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-lg shadow p-6 space-y-6">
-        {error && (
+        {errors.form && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
+            {errors.form}
           </div>
         )}
 
@@ -188,11 +247,13 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
             <input
               type="text"
               name="name"
-              required
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+                errors.name ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
+            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
           </div>
 
           <div>
@@ -212,30 +273,26 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Категория
+              Категория *
             </label>
-            <input
-              type="number"
+            <select
               name="categoryId"
               value={formData.categoryId}
               onChange={handleChange}
-              placeholder="ID категории"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Бренд
-            </label>
-            <input
-              type="number"
-              name="brandId"
-              value={formData.brandId}
-              onChange={handleChange}
-              placeholder="ID бренда"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
+              disabled={loadingCategories}
+              className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100 ${
+                errors.categoryId ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              <option value="">Выберите категорию</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name} — {cat.categoryCode || cat.id}
+                </option>
+              ))}
+            </select>
+            {errors.categoryId && <p className="mt-1 text-sm text-red-600">{errors.categoryId}</p>}
+            {loadingCategories && <p className="mt-1 text-sm text-gray-500">Загрузка категорий...</p>}
           </div>
         </div>
 
@@ -256,12 +313,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           <input
             type="number"
             name="price"
-            required
             step="0.01"
             value={formData.price}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              errors.price ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
+          {errors.price && <p className="mt-1 text-sm text-red-600">{errors.price}</p>}
         </div>
 
         <div>
@@ -270,12 +329,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           </label>
           <textarea
             name="shortDescription"
-            required
             rows={3}
             value={formData.shortDescription}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              errors.shortDescription ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
+          {errors.shortDescription && <p className="mt-1 text-sm text-red-600">{errors.shortDescription}</p>}
         </div>
 
         <div>
@@ -284,43 +345,47 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           </label>
           <textarea
             name="description"
-            required
             rows={6}
             value={formData.description}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              errors.description ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
+          {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              SEO заголовок
+            </label>
+            <input
+              type="text"
+              name="seoTitle"
+              value={formData.seoTitle}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              SEO описание
+            </label>
+            <textarea
+              name="seoDescription"
+              rows={3}
+              value={formData.seoDescription}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            SEO заголовок
-          </label>
-          <input
-            type="text"
-            name="seoTitle"
-            value={formData.seoTitle}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            SEO описание
-          </label>
-          <textarea
-            name="seoDescription"
-            rows={3}
-            value={formData.seoDescription}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Slug
+            Slug (URL товара)
           </label>
           <input
             type="text"
@@ -330,6 +395,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
             placeholder="url-nazvanie-tovara"
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
+          <p className="mt-1 text-sm text-gray-500">Оставьте пустым для автогенерации</p>
         </div>
 
         <div className="flex items-center">

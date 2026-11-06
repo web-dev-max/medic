@@ -40,6 +40,13 @@ export default function CategoriesList({ categories }: CategoriesListProps) {
 
     try {
       const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
+      
+      if (!token) {
+        alert('Не авторизован. Пожалуйста, войдите в систему.');
+        window.location.href = '/admin/login';
+        return;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/categories/${id}`, {
         method: 'DELETE',
         headers: {
@@ -48,13 +55,20 @@ export default function CategoriesList({ categories }: CategoriesListProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete category');
+        if (response.status === 401) {
+          alert('Не авторизован. Пожалуйста, войдите в систему.');
+          window.location.href = '/admin/login';
+          return;
+        }
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete category');
       }
 
       window.location.reload();
     } catch (error) {
       console.error('Error deleting category:', error);
-      alert('Не удалось удалить категорию');
+      const errorMessage = error instanceof Error ? error.message : 'Не удалось удалить категорию';
+      alert(errorMessage);
     }
   };
 

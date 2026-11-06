@@ -38,16 +38,12 @@ export default function AdminLoginPage() {
       }
 
       const data = await response.json();
-      
+
       // Store tokens
       setCookie('admin_token', data.accessToken, 7);
       setCookie('admin_refresh_token', data.refreshToken, 7);
 
-      // Force revalidation to pick up new cookies
-      router.refresh();
-      
-      // Navigate to dashboard
-      router.push('/admin');
+      window.location.href = '/admin';
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Ошибка входа. Попробуйте снова.';
       setError(errorMessage);

@@ -12,20 +12,28 @@ import {
   BadRequestException,
   NotFoundException,
   UseInterceptors,
+  Logger,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { extname, join } from 'path';
-import { createWriteStream, existsSync, unlinkSync } from 'fs';
+import { createWriteStream, existsSync, unlinkSync, mkdirSync } from 'fs';
 import { ProductsAdminService } from './products-admin.service';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 
+const logger = new Logger('AdminUploadsController');
+
 function generateUniqueFilename(originalname: string): string {
   const randomString = Math.random().toString(36).substring(2, 15);
   const timestamp = Date.now();
-  const ext = extname(originalname);
+  const ext = extname(originalname).toLowerCase();
+  // Validate extension
+  const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+  if (!allowedExts.includes(ext)) {
+    throw new BadRequestException(`Invalid file extension: ${ext}`);
+  }
   return `${timestamp}-${randomString}${ext}`;
 }
 
@@ -85,28 +93,36 @@ export class AdminUploadsController {
       throw new NotFoundException('Product not found');
     }
 
+    // Save to VirtueMart product images directory
+    const uploadDir = join(process.cwd(), 'uploads', 'images', 'stories', 'virtuemart', 'product');
+    
+    // Ensure directory exists
+    if (!existsSync(uploadDir)) {
+      mkdirSync(uploadDir, { recursive: true });
+      logger.log(`Created directory: ${uploadDir}`);
+    }
+
     const uploadedItems: Array<{ url: string; mediaId: number }> = [];
 
     for (const file of files) {
       const uniqueFilename = generateUniqueFilename(file.originalname);
-      const destPath = join(__dirname, '../../../uploads/images', uniqueFilename);
-
-      // Ensure directory exists
-      if (!existsSync(join(__dirname, '../../../uploads/images'))) {
-        const fs = await import('fs');
-        fs.mkdirSync(join(__dirname, '../../../uploads/images'), { recursive: true });
-      }
+      const destPath = join(uploadDir, uniqueFilename);
 
       // Write file
       const writeStream = createWriteStream(destPath);
       await new Promise<void>((resolve, reject) => {
         writeStream.write(file.buffer);
         writeStream.on('finish', () => resolve());
-        writeStream.on('error', (error) => reject(error));
+        writeStream.on('error', (error) => {
+          logger.error(`Failed to write file: ${error.message}`);
+          reject(error);
+        });
       });
 
-      // Create relative URL
-      const relativeUrl = `/uploads/images/${uniqueFilename}`;
+      // Create relative URL for database (relative to web root)
+      const relativeUrl = `/uploads/images/stories/virtuemart/product/${uniqueFilename}`;
+
+      logger.log(`Uploaded product image: ${uniqueFilename} for product ${productId}`);
 
       // Insert into jos_virtuemart_medias
       const mediaResult = await this.dataSource.query(
@@ -176,14 +192,18 @@ export class AdminUploadsController {
 
     // If no other products use this media, delete the media record and file
     if (parseInt(otherProductCount[0].count) === 0) {
-      // Delete physical file
-      const filePath = join(__dirname, '../../../', imageInfo.file_url);
+      // Delete physical file - use correct VirtueMart path
+      const filePath = join(process.cwd(), 'uploads', 'images', imageInfo.file_url);
+      
       if (existsSync(filePath)) {
         try {
           unlinkSync(filePath);
-        } catch (error) {
-          console.error('Failed to delete file:', error);
+          logger.log(`Deleted physical file: ${filePath}`);
+        } catch (err: any) {
+          logger.error(`Failed to delete file: ${err.message}`);
         }
+      } else {
+        logger.warn(`File not found: ${filePath}`);
       }
 
       // Delete from medias

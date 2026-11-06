@@ -28,6 +28,14 @@ export default function PhotoManager({ productId, initialPhotos = [], onPhotosCh
     return match ? match[2] : undefined;
   };
 
+  const getToken = (): string | undefined => {
+    const token = getCookie('admin_token');
+    if (!token) {
+      console.error('[PhotoManager] admin_token cookie not found');
+    }
+    return token;
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !productId) return;
@@ -41,10 +49,12 @@ export default function PhotoManager({ productId, initialPhotos = [], onPhotosCh
         formData.append('photos', files[i]);
       }
 
-      const token = getCookie('admin_token');
+      const token = getToken();
       if (!token) {
         throw new Error('Не авторизован');
       }
+
+      console.log('[PhotoManager] Uploading files for product:', productId, 'Files count:', files.length);
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/uploads/product/${productId}`,
@@ -63,14 +73,19 @@ export default function PhotoManager({ productId, initialPhotos = [], onPhotosCh
       }
 
       const data = await response.json();
+      console.log('[PhotoManager] Upload response:', data);
       
       // Add new photos to state with their media IDs from backend response
-      const newPhotos: Photo[] = (data.items || []).map((item: { url: string; mediaId: number }, index: number) => ({
-        id: item.mediaId > 0 ? item.mediaId : Date.now() + index,
-        url: item.url,
-        ordering: photos.length + index,
-        mediaId: item.mediaId || 0,
-      }));
+      const newPhotos: Photo[] = (data.items || []).map((item: { url: string; mediaId: number }, index: number) => {
+        const mediaId = item.mediaId > 0 ? item.mediaId : Date.now() + index;
+        console.log('[PhotoManager] New photo:', { mediaId, url: item.url });
+        return {
+          id: mediaId,
+          url: item.url,
+          ordering: photos.length + index,
+          mediaId: mediaId,
+        };
+      });
 
       const updatedPhotos = [...photos, ...newPhotos];
       setPhotos(updatedPhotos);
@@ -100,11 +115,14 @@ export default function PhotoManager({ productId, initialPhotos = [], onPhotosCh
         throw new Error('Не авторизован');
       }
 
+      console.log('[PhotoManager] Deleting photo:', photoId, 'with mediaId:', photos.find(p => p.id === photoId)?.mediaId);
+      
       // Find the photo to get its mediaId
       const photo = photos.find(p => p.id === photoId);
       
       // Delete from server using mediaId (works for both new and existing photos)
       if (photo && photo.mediaId && photo.mediaId > 0) {
+        console.log('[PhotoManager] Deleting mediaId:', photo.mediaId);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/uploads/product/${productId}/${photo.mediaId}`,
           {
@@ -151,11 +169,14 @@ export default function PhotoManager({ productId, initialPhotos = [], onPhotosCh
         throw new Error('Не авторизован');
       }
 
+      console.log('[PhotoManager] Setting main photo:', photoId, 'with mediaId:', photos.find(p => p.id === photoId)?.mediaId);
+      
       // Find the photo to get its mediaId
       const photo = photos.find(p => p.id === photoId);
       
       // If photo has a valid mediaId from database, update ordering on server
       if (photo && photo.mediaId && photo.mediaId > 0) {
+        console.log('[PhotoManager] Setting main mediaId:', photo.mediaId);
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/uploads/product/${productId}/set-main/${photo.mediaId}`,
           {
@@ -188,11 +209,7 @@ export default function PhotoManager({ productId, initialPhotos = [], onPhotosCh
     }
   };
 
-  // Helper function to extract mediaId from URL if it contains one
-  // Currently not used - mediaIds are handled by the backend
-  const _extractMediaId = (_url: string, index: number): number => {
-    return -index - 1;
-  };
+
 
   return (
     <div>

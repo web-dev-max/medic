@@ -54,20 +54,20 @@ export class CategoriesAdminService {
     const categoriesQuery = `
       SELECT 
         c.virtuemart_category_id as id,
+        c.category_code,
         cr.category_name as name,
         cr.slug,
         cr.category_description as description,
         cr.metadesc as seoDescription,
         cr.customtitle as seoTitle,
         COALESCE(cc.category_parent_id, 0) as parentId,
-        c.ordering as sortOrder,
         c.published
       FROM jos_virtuemart_categories c
       INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
       LEFT JOIN jos_virtuemart_category_categories cc ON c.virtuemart_category_id = cc.category_child_id
       WHERE 1=1 ${whereConditions}
-      GROUP BY c.virtuemart_category_id, cr.category_name, cr.slug, cr.category_description,
-               cr.metadesc, cr.customtitle, cc.category_parent_id, c.ordering, c.published
+      GROUP BY c.virtuemart_category_id, c.category_code, cr.category_name, cr.slug, cr.category_description,
+               cr.metadesc, cr.customtitle, cc.category_parent_id, c.published
       ORDER BY c.ordering ASC
       LIMIT ? OFFSET ?
     `;
@@ -102,13 +102,13 @@ export class CategoriesAdminService {
     // Convert categories to include images
     const items = categories.map((category: any) => ({
       id: category.id,
+      categoryCode: category.category_code,
       name: category.name,
       slug: category.slug,
       description: category.description,
       seoDescription: category.seoDescription,
       seoTitle: category.seoTitle,
       parentId: category.parentId,
-      sortOrder: category.sortOrder,
       published: category.published,
       image: imagesMap.get(category.id) || '',
     }));
@@ -126,6 +126,7 @@ export class CategoriesAdminService {
     const sql = `
       SELECT 
         c.virtuemart_category_id as id,
+        c.category_code,
         cr.category_name as name,
         cr.slug,
         cr.category_description as description,
@@ -133,7 +134,6 @@ export class CategoriesAdminService {
         cr.metakey as seoKeywords,
         cr.customtitle as seoTitle,
         COALESCE(cc.category_parent_id, 0) as parentId,
-        c.ordering as sortOrder,
         c.published
       FROM jos_virtuemart_categories c
       INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
@@ -181,18 +181,53 @@ export class CategoriesAdminService {
   async create(data: AdminCreateCategoryDto) {
     return this.dataSource.transaction(async (manager) => {
       try {
+        // Check if categoryCode already exists
+        const existingCode = await manager.query(
+          `SELECT virtuemart_category_id FROM jos_virtuemart_categories WHERE category_code = ?`,
+          [data.categoryCode]
+        );
+
+        if (existingCode && existingCode.length > 0) {
+          throw new BadRequestException(`Категория с номером "${data.categoryCode}" уже существует`);
+        }
+
         // Insert into jos_virtuemart_categories
         const categoryResult = await manager.query(
           `INSERT INTO jos_virtuemart_categories (
-            virtuemart_vendor_id, ordering, published, shared
-          ) VALUES (1, ?, ?, 0)`,
+            virtuemart_vendor_id, category_code, published, shared,
+            created_on, created_by, modified_on, modified_by, locked_on, locked_by
+          ) VALUES (1, ?, ?, 0,
+            NOW(), 0, NOW(), 0,
+            NULL, 0
+          )`,
           [
-            data.sortOrder || 0,
+            data.categoryCode,
             data.published !== false ? 1 : 0,
           ]
         );
 
         const categoryId = categoryResult.insertId;
+
+        // Auto-generate slug from name if not provided
+        let slug = data.slug;
+        if (!slug || slug.trim() === '') {
+          // Convert Russian name to URL-friendly slug
+          slug = data.name
+            .toLowerCase()
+            .replace(/[а-яё]/g, (char) => {
+              const cyrillicMap: Record<string, string> = {
+                'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
+                'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+                'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+                'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'shch',
+                'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+              };
+              return cyrillicMap[char] || char;
+            })
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .substring(0, 192);
+        }
 
         // Insert into jos_virtuemart_categories_ru_ru
         await manager.query(
@@ -203,7 +238,7 @@ export class CategoriesAdminService {
           [
             categoryId,
             data.name,
-            data.slug || '',
+            slug,
             data.description || '',
             data.seoDescription || '',
             '',
@@ -214,13 +249,16 @@ export class CategoriesAdminService {
         // Insert parent relation if specified
         if (data.parentId && data.parentId !== 0) {
           await manager.query(
-            `INSERT INTO jos_virtuemart_category_categories (category_parent_id, category_child_id, ordering) VALUES (?, ?, ?)`,
-            [data.parentId, categoryId, 0]
+            `INSERT INTO jos_virtuemart_category_categories (category_parent_id, category_child_id, ordering) VALUES (?, ?, 0)`,
+            [data.parentId, categoryId]
           );
         }
 
         return this.findById(categoryId);
       } catch (error: any) {
+        if (error.code === 'ER_DUP_ENTRY') {
+          throw new BadRequestException(`Категория с номером "${data.categoryCode}" уже существует`);
+        }
         throw new BadRequestException(`Failed to create category: ${error.message}`);
       }
     });
@@ -233,6 +271,18 @@ export class CategoriesAdminService {
         const existing = await this.findById(id);
         if (!existing) {
           throw new NotFoundException(`Category with ID ${id} not found`);
+        }
+
+        // Check if categoryCode already exists (excluding current category)
+        if (data.categoryCode !== undefined && data.categoryCode !== existing.category_code) {
+          const existingCode = await manager.query(
+            `SELECT virtuemart_category_id FROM jos_virtuemart_categories WHERE category_code = ? AND virtuemart_category_id != ?`,
+            [data.categoryCode, id]
+          );
+
+          if (existingCode && existingCode.length > 0) {
+            throw new BadRequestException(`Категория с номером "${data.categoryCode}" уже существует`);
+          }
         }
 
         // Update jos_virtuemart_categories_ru_ru
@@ -258,9 +308,9 @@ export class CategoriesAdminService {
         const categoryUpdateFields: string[] = [];
         const categoryUpdateParams: any[] = [];
 
-        if (data.sortOrder !== undefined) {
-          categoryUpdateFields.push('ordering = ?');
-          categoryUpdateParams.push(data.sortOrder);
+        if (data.categoryCode !== undefined) {
+          categoryUpdateFields.push('category_code = ?');
+          categoryUpdateParams.push(data.categoryCode);
         }
         if (data.published !== undefined) {
           categoryUpdateFields.push('published = ?');
@@ -268,10 +318,17 @@ export class CategoriesAdminService {
         }
 
         if (categoryUpdateFields.length > 0) {
+          categoryUpdateFields.push('modified_on = NOW()');
           categoryUpdateParams.push(id);
           await manager.query(
             `UPDATE jos_virtuemart_categories SET ${categoryUpdateFields.join(', ')} WHERE virtuemart_category_id = ?`,
             categoryUpdateParams
+          );
+        } else {
+          // Even if no other fields changed, update modified_on
+          await manager.query(
+            `UPDATE jos_virtuemart_categories SET modified_on = NOW() WHERE virtuemart_category_id = ?`,
+            [id]
           );
         }
 
@@ -285,14 +342,17 @@ export class CategoriesAdminService {
           // Insert new parent relation
           if (data.parentId && data.parentId !== 0) {
             await manager.query(
-              `INSERT INTO jos_virtuemart_category_categories (category_parent_id, category_child_id, ordering) VALUES (?, ?, ?)`,
-              [data.parentId, id, 0]
+              `INSERT INTO jos_virtuemart_category_categories (category_parent_id, category_child_id, ordering) VALUES (?, ?, 0)`,
+              [data.parentId, id]
             );
           }
         }
 
         return this.findById(id);
       } catch (error: any) {
+        if (error.code === 'ER_DUP_ENTRY') {
+          throw new BadRequestException(`Категория с номером "${data.categoryCode}" уже существует`);
+        }
         throw new BadRequestException(`Failed to update category: ${error.message}`);
       }
     });

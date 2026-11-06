@@ -54,6 +54,11 @@ export class ProductsAdminService {
         params.push(Number(query.brandId));
       }
 
+      if (query.status) {
+        whereConditions += ' AND p.published = ?';
+        params.push(Number(query.status));
+      }
+
       // Get total count
       const countQuery = `\
         SELECT COUNT(DISTINCT p.virtuemart_product_id) as total
@@ -75,8 +80,7 @@ export class ProductsAdminService {
           pr.product_name as name,
           pr.slug,
           p.product_sku as sku,
-          COALESCE(pc.virtuemart_category_id, 0) as categoryId,
-          COALESCE(pm.virtuemart_manufacturer_id, 0) as brandId,
+          MIN(pc.virtuemart_category_id) as categoryId,
           COALESCE(MIN(ppr.product_price), 0) as product_price,
           p.product_in_stock,
           p.published,
@@ -85,12 +89,9 @@ export class ProductsAdminService {
         FROM jos_virtuemart_products p
         INNER JOIN jos_virtuemart_products_ru_ru pr ON p.virtuemart_product_id = pr.virtuemart_product_id
         LEFT JOIN jos_virtuemart_product_categories pc ON p.virtuemart_product_id = pc.virtuemart_product_id
-        LEFT JOIN jos_virtuemart_product_manufacturers pm ON p.virtuemart_product_id = pm.virtuemart_product_id
         LEFT JOIN jos_virtuemart_product_prices ppr ON p.virtuemart_product_id = ppr.virtuemart_product_id
-        LEFT JOIN jos_virtuemart_manufacturers m ON pm.virtuemart_manufacturer_id = m.virtuemart_manufacturer_id
         WHERE 1=1 ${whereConditions}
-        GROUP BY p.virtuemart_product_id, pr.product_name, pr.slug, p.product_sku, 
-                 pc.virtuemart_category_id, pm.virtuemart_manufacturer_id,
+        GROUP BY p.virtuemart_product_id, pr.product_name, pr.slug, p.product_sku,
                  p.product_in_stock, p.published, p.product_available_date
         ORDER BY ${sortField} ${sortOrder}
         LIMIT ? OFFSET ?
@@ -134,8 +135,7 @@ export class ProductsAdminService {
         name: product.name,
         slug: product.slug,
         sku: product.sku,
-        categoryId: product.categoryId,
-        brandId: product.brandId,
+        categoryId: product.categoryId || null,
         price: parseFloat(String(product.product_price || 0)),
         product_in_stock: product.product_in_stock,
         published: product.published,
@@ -171,17 +171,15 @@ export class ProductsAdminService {
     return this.dataSource.transaction(async (manager) => {
       try {
         // Insert into jos_virtuemart_products
-        // BUG-06/07 FIX: Use virtuemart_manufacturer_id column instead of product_parent_id
         const productResult = await manager.query(
           `INSERT INTO jos_virtuemart_products (
-            virtuemart_vendor_id, virtuemart_manufacturer_id, product_sku,
+            virtuemart_vendor_id, product_parent_id, product_sku,
             product_in_stock, product_available_date, published,
-            product_params, created_on, modified_on
-          ) VALUES (1, ?, ?, ?, '0000-00-00 00:00:00', ?, '{}')`,
+            product_params, created_on, created_by, modified_on, modified_by, locked_on, locked_by
+          ) VALUES (1, 0, ?, 0, NOW(), ?, '{}', NOW(), 0, NOW(), 0, NULL, 0)`,
           [
-            data.virtuemart_manufacturer_id || 0,
             data.sku || '',
-            data.published !== false ? '1' : '0',
+            data.published !== false ? 1 : 0,
           ]
         );
 
@@ -211,16 +209,6 @@ export class ProductsAdminService {
           await manager.query(
             `INSERT INTO jos_virtuemart_product_categories (virtuemart_product_id, virtuemart_category_id) VALUES (?, ?)`,
             [productId, data.virtuemart_category_id]
-          );
-        }
-
-        // Insert manufacturer relation via junction table
-        // BUG-06/07 FIX: Use junction table instead of updating product_parent_id
-        if (data.virtuemart_manufacturer_id) {
-          await manager.query(
-            `INSERT INTO jos_virtuemart_product_manufacturers (virtuemart_product_id, virtuemart_manufacturer_id) VALUES (?, ?)
-             ON DUPLICATE KEY UPDATE virtuemart_manufacturer_id = VALUES(virtuemart_manufacturer_id)`,
-            [productId, data.virtuemart_manufacturer_id]
           );
         }
 
@@ -314,23 +302,6 @@ export class ProductsAdminService {
           }
         }
 
-        // Update manufacturer relation via junction table
-        // BUG-06/07 FIX: Use junction table instead of updating product_parent_id
-        if (data.virtuemart_manufacturer_id !== undefined) {
-          // Delete old manufacturer relation
-          await manager.query(
-            `DELETE FROM jos_virtuemart_product_manufacturers WHERE virtuemart_product_id = ?`,
-            [id]
-          );
-          // Insert new manufacturer relation
-          if (data.virtuemart_manufacturer_id) {
-            await manager.query(
-              `INSERT INTO jos_virtuemart_product_manufacturers (virtuemart_product_id, virtuemart_manufacturer_id) VALUES (?, ?)`,
-              [id, data.virtuemart_manufacturer_id]
-            );
-          }
-        }
-
         // Update price if changed
         // BUG-08 FIX: Also update oldPrice if provided
         if (data.price !== undefined && data.price > 0) {
@@ -382,9 +353,8 @@ export class ProductsAdminService {
         pr.product_name as name,
         pr.slug,
         p.product_sku as sku,
-        COALESCE(pc.virtuemart_category_id, 0) as categoryId,
-        COALESCE(pm.virtuemart_manufacturer_id, 0) as brandId,
-        COALESCE(pp.product_price, 0) as price,
+        MIN(pc.virtuemart_category_id) as categoryId,
+        COALESCE(MIN(pp.product_price), 0) as price,
         p.product_in_stock,
         p.published,
         p.product_available_date as availableDate,
@@ -397,9 +367,10 @@ export class ProductsAdminService {
       INNER JOIN jos_virtuemart_products_ru_ru pr ON p.virtuemart_product_id = pr.virtuemart_product_id
       LEFT JOIN jos_virtuemart_product_categories pc ON p.virtuemart_product_id = pc.virtuemart_product_id
       LEFT JOIN jos_virtuemart_product_prices pp ON p.virtuemart_product_id = pp.virtuemart_product_id
-      LEFT JOIN jos_virtuemart_product_manufacturers pm ON p.virtuemart_product_id = pm.virtuemart_product_id
-      LEFT JOIN jos_virtuemart_manufacturers m ON pm.virtuemart_manufacturer_id = m.virtuemart_manufacturer_id
       WHERE p.virtuemart_product_id = ?
+      GROUP BY p.virtuemart_product_id, pr.product_name, pr.slug, p.product_sku,
+               p.product_in_stock, p.published, p.product_available_date,
+               pr.product_s_desc, pr.product_desc, pr.metadesc, pr.metakey, pr.customtitle
     `;
 
     const rows = await this.dataSource.query(sql, [id]);
@@ -427,8 +398,7 @@ export class ProductsAdminService {
       name: product.name,
       slug: product.slug,
       sku: product.sku,
-      categoryId: product.categoryId,
-      brandId: product.brandId,
+      categoryId: product.categoryId || null,
       price: parseFloat(String(product.price || 0)),
       product_in_stock: product.product_in_stock,
       published: product.published,
