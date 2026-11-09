@@ -8,7 +8,7 @@ interface Category {
   name: string;
   slug: string;
   description: string;
-  parentId: number;
+  categoryCode: number;
   sortOrder: number;
   published: number;
   image: string;
@@ -40,7 +40,7 @@ export default function CategoriesList({ categories }: CategoriesListProps) {
 
     try {
       const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
-      
+
       if (!token) {
         alert('Не авторизован. Пожалуйста, войдите в систему.');
         window.location.href = '/admin/login';
@@ -108,8 +108,7 @@ export default function CategoriesList({ categories }: CategoriesListProps) {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Родитель</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Порядок</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Код категории</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
             </tr>
@@ -124,9 +123,8 @@ export default function CategoriesList({ categories }: CategoriesListProps) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{category.slug}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {category.parentId && category.parentId !== 0 ? category.parentId : '—'}
+                    {category.categoryCode && category.categoryCode !== 0 ? category.categoryCode : '—'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{category.sortOrder}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                       category.published === 1

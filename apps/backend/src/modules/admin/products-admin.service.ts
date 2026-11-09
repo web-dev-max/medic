@@ -14,17 +14,17 @@ export class ProductsAdminService {
 
   private convertToAbsoluteUrl(relativePath: string): string {
     if (!relativePath) return '';
-    
+
     // If already a full URL (http/https), return as-is
     if (relativePath.startsWith('http')) {
       return relativePath;
     }
-    
+
     // If already starts with /uploads/, return as-is (local path)
     if (relativePath.startsWith('/uploads/')) {
       return relativePath;
     }
-    
+
     // Relative path - prepend base URL
     const cleanPath = relativePath.startsWith('/') ? relativePath : '/' + relativePath;
     return `${this.IMAGE_BASE_URL}${cleanPath}`;
@@ -75,7 +75,7 @@ export class ProductsAdminService {
       const sortOrder = query.sortOrder === 'asc' ? 'ASC' : 'DESC';
 
       const productsQuery = `\
-        SELECT 
+        SELECT
           p.virtuemart_product_id as id,
           pr.product_name as name,
           pr.slug,
@@ -102,7 +102,7 @@ export class ProductsAdminService {
       // Fetch images for all products
       const productIds = products.map((p: any) => p.id).filter(Boolean);
       const imagesMap = new Map<number, Array<{ url: string; mediaId: number; ordering: number }>>();
-      
+
       if (productIds.length > 0) {
         const placeholders = productIds.map(() => '?').join(',');
         const imagesSql = `\
@@ -121,8 +121,8 @@ export class ProductsAdminService {
           if (!imagesMap.has(pid)) {
             imagesMap.set(pid, []);
           }
-          imagesMap.get(pid)!.push({ 
-            url, 
+          imagesMap.get(pid)!.push({
+            url,
             mediaId: img.mediaId,
             ordering: img.ordering || 0
           });
@@ -173,14 +173,19 @@ export class ProductsAdminService {
         // Insert into jos_virtuemart_products
         const productResult = await manager.query(
           `INSERT INTO jos_virtuemart_products (
-            virtuemart_vendor_id, product_parent_id, product_sku,
-            product_in_stock, product_available_date, published,
-            product_params, created_on, created_by, modified_on, modified_by, locked_on, locked_by
-          ) VALUES (1, 0, ?, 0, NOW(), ?, '{}', NOW(), 0, NOW(), 0, NULL, 0)`,
+             virtuemart_vendor_id, product_parent_id, product_sku,
+             product_in_stock, product_available_date, published,
+             product_params, created_on, created_by, modified_on, modified_by,
+             locked_on, locked_by
+           ) VALUES (
+             1, 0, ?, 0, NOW(), ?, '{}',
+             NOW(), 0, NOW(), 0,
+             '1970-01-01 00:00:00', 0
+           )`,
           [
             data.sku || '',
             data.published !== false ? 1 : 0,
-          ]
+          ],
         );
 
         const productId = productResult.insertId;
@@ -212,20 +217,24 @@ export class ProductsAdminService {
           );
         }
 
-        // Insert price
-        // BUG-08 FIX: Store oldPrice if provided
+
         if (data.price > 0) {
-          if (data.oldPrice && data.oldPrice > 0) {
-            await manager.query(
-              `INSERT INTO jos_virtuemart_product_prices (virtuemart_product_id, product_price, product_old_price) VALUES (?, ?, ?)`,
-              [productId, data.price, data.oldPrice]
-            );
-          } else {
-            await manager.query(
-              `INSERT INTO jos_virtuemart_product_prices (virtuemart_product_id, product_price) VALUES (?, ?)`,
-              [productId, data.price]
-            );
-          }
+          await manager.query(
+            `INSERT INTO jos_virtuemart_product_prices (
+               virtuemart_product_id,
+               product_price,
+               product_price_publish_up,
+               product_price_publish_down,
+               created_on, created_by, modified_on, modified_by,
+               locked_on, locked_by
+             ) VALUES (
+               ?, ?,
+               NOW(), '9999-12-31 23:59:59',
+               NOW(), 0, NOW(), 0,
+               '1970-01-01 00:00:00', 0
+             )`,
+            [productId, data.price],
+          );
         }
 
         return this.findById(productId);
@@ -305,17 +314,17 @@ export class ProductsAdminService {
         // Update price if changed
         // BUG-08 FIX: Also update oldPrice if provided
         if (data.price !== undefined && data.price > 0) {
-          if (data.oldPrice && data.oldPrice > 0) {
-            await manager.query(
-              `UPDATE jos_virtuemart_product_prices SET product_price = ?, product_old_price = ? WHERE virtuemart_product_id = ?`,
-              [data.price, data.oldPrice, id]
-            );
-          } else {
-            await manager.query(
-              `UPDATE jos_virtuemart_product_prices SET product_price = ? WHERE virtuemart_product_id = ?`,
-              [data.price, id]
-            );
-          }
+          await manager.query(
+            `UPDATE jos_virtuemart_product_prices
+             SET product_price = ?, modified_on = NOW()
+             WHERE virtuemart_product_id = ?`,
+            [data.price, id],
+          );
+        } else {
+          await manager.query(
+            `UPDATE jos_virtuemart_product_prices SET product_price = ? WHERE virtuemart_product_id = ?`,
+            [data.price, id]
+          );
         }
 
         return this.findById(id);
@@ -348,7 +357,7 @@ export class ProductsAdminService {
 
   private async findOneByIdRaw(id: number) {
     const sql = `\
-      SELECT 
+      SELECT
         p.virtuemart_product_id as id,
         pr.product_name as name,
         pr.slug,
@@ -375,7 +384,7 @@ export class ProductsAdminService {
 
     const rows = await this.dataSource.query(sql, [id]);
     const product = rows[0] || null;
-    
+
     if (!product) return null;
 
     // Fetch images with media IDs

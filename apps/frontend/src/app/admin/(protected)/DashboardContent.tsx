@@ -119,8 +119,8 @@ export default function DashboardContent({ statistics }: DashboardContentProps) 
       </div>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recent Orders */}
+      {/*<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">Последние заказы</h2>
@@ -144,10 +144,10 @@ export default function DashboardContent({ statistics }: DashboardContentProps) 
               <p className="text-gray-500 text-sm">Нет последних заказов</p>
             )}
           </div>
-        </div>
+        </div>*/}
 
         {/* Low Stock Products */}
-        <div className="bg-white rounded-lg shadow">
+        {/*<div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">Мало на складе</h2>
           </div>
@@ -177,10 +177,10 @@ export default function DashboardContent({ statistics }: DashboardContentProps) 
             )}
           </div>
         </div>
-      </div>
+      </div>*/}
 
       {/* Top Products by Inventory Value */}
-      <div className="mt-8 bg-white rounded-lg shadow">
+      {/*<div className="mt-8 bg-white rounded-lg shadow">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">Топ товаров по стоимости склада</h2>
         </div>
@@ -212,7 +212,7 @@ export default function DashboardContent({ statistics }: DashboardContentProps) 
             <p className="text-gray-500 text-sm">Товары не найдены</p>
           )}
         </div>
-      </div>
+      </div>*/}
     </div>
   );
 }

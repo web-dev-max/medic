@@ -14,15 +14,15 @@ export class CategoriesAdminService {
 
   private convertToAbsoluteUrl(relativePath: string): string {
     if (!relativePath) return '';
-    
+
     if (relativePath.startsWith('http')) {
       return relativePath;
     }
-    
+
     if (relativePath.startsWith('/uploads/')) {
       return relativePath;
     }
-    
+
     const cleanPath = relativePath.startsWith('/') ? relativePath : '/' + relativePath;
     return `${this.IMAGE_BASE_URL}${cleanPath}`;
   }
@@ -52,7 +52,7 @@ export class CategoriesAdminService {
 
     // Get categories with parent info
     const categoriesQuery = `
-      SELECT 
+      SELECT
         c.virtuemart_category_id as id,
         c.category_code,
         cr.category_name as name,
@@ -77,7 +77,7 @@ export class CategoriesAdminService {
     // Fetch images for all categories
     const categoryIds = categories.map((c: any) => c.id).filter(Boolean);
     const imagesMap = new Map<number, string>();
-    
+
     if (categoryIds.length > 0) {
       const placeholders = categoryIds.map(() => '?').join(',');
       const imagesSql = `
@@ -124,7 +124,7 @@ export class CategoriesAdminService {
 
   async findById(id: number) {
     const sql = `
-      SELECT 
+      SELECT
         c.virtuemart_category_id as id,
         c.category_code,
         cr.category_name as name,
@@ -143,7 +143,7 @@ export class CategoriesAdminService {
 
     const rows = await this.dataSource.query(sql, [id]);
     const category = rows[0] || null;
-    
+
     if (!category) return null;
 
     // Fetch image
@@ -165,7 +165,7 @@ export class CategoriesAdminService {
 
   async findTree() {
     const categories = await this.findAll({ page: 1, pageSize: 1000 });
-    
+
     const buildTree = (parentId: number = 0): any[] => {
       return (categories.items as any[])
         .filter((c: any) => c.parentId === parentId)
@@ -198,7 +198,7 @@ export class CategoriesAdminService {
             created_on, created_by, modified_on, modified_by, locked_on, locked_by
           ) VALUES (1, ?, ?, 0,
             NOW(), 0, NOW(), 0,
-            NULL, 0
+            '1970-01-01 00:00:00', 0
           )`,
           [
             data.categoryCode,

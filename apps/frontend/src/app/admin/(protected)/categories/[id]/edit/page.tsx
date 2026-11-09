@@ -57,9 +57,10 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
 
       const data = await response.json();
       setCategory(data);
+      console.log(data);
       setFormData({
         name: data.name || '',
-        categoryCode: data.categoryCode || '',
+        categoryCode: data.category_code || '',
         slug: data.slug || '',
         description: data.description || '',
         seoTitle: data.seoTitle || '',
@@ -93,6 +94,10 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
       newErrors.name = 'Название должно содержать минимум 2 символа';
     }
 
+    if (!formData.slug.trim()) {
+      newErrors.slug = 'Slug обязателен';
+    }
+
     if (!formData.categoryCode.trim()) {
       newErrors.categoryCode = 'Код категории обязателен';
     } else if (formData.categoryCode.length > 50) {
@@ -106,7 +111,7 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    
+
     if (!validate()) {
       return;
     }
@@ -217,17 +222,24 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Slug (URL категории)
+            Slug (URL товара) *
           </label>
           <input
             type="text"
             name="slug"
             value={formData.slug}
             onChange={handleChange}
-            placeholder="url-kategorii"
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            placeholder="url-nazvanie-tovara"
+            className={`w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${
+              errors.slug ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
-          <p className="mt-1 text-sm text-gray-500">Оставьте пустым для автогенерации из названия</p>
+          {errors.slug && (
+            <p className="mt-1 text-sm text-red-600">{errors.slug}</p>
+          )}
+          <p className="mt-1 text-sm text-gray-500">
+            Используется в URL: <code>/products/{formData.slug || 'url-tovara'}</code>
+          </p>
         </div>
 
         <div>
