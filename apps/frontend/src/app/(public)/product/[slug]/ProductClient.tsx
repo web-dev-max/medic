@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loading, ErrorState } from '@/components/ui/Loading';
 import { apiClient } from '@/lib/api/client';
@@ -14,6 +14,9 @@ interface ProductClientProps {
 }
 
 export function ProductClient({ slug }: ProductClientProps) {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [slug]);
   const { data: productData, isLoading, error } = useQuery({
     queryKey: ['product', slug],
     queryFn: () => apiClient.getProduct(slug),

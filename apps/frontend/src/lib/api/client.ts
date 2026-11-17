@@ -82,7 +82,10 @@ class ApiClient {
     const response = await this.request<unknown>(`/categories/${encodeURIComponent(slug)}/path`);
     return this.extractData(response);
   }
-
+  async getSubCategories(parentId: number) {
+     const response = await this.request<unknown>(`/categories/${parentId}/subcategories`);
+     return this.extractData(response);
+   }
   async searchCategories(query: string, limit: number = 5) {
     const response = await this.request<unknown>(`/categories/search?q=${encodeURIComponent(query)}&limit=${limit}`);
     return this.extractData(response);

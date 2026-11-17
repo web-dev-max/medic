@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useCategories } from '@/lib/api/hooks';
 import { CONTACT_INFO } from '@/lib/constants';
 import { MessageCircle } from 'lucide-react';
-
+import { toSentenceCase } from '@/lib/utils';
 interface Category {
   id: number;
   name: string;
@@ -15,7 +15,7 @@ interface Category {
 export function Footer() {
   const { data: categoriesData, isLoading, error } = useCategories();
   const categories = (categoriesData as Category[] | undefined) || [];
-  
+
   // Get first 8 categories for display
   const catalogCategories = categories.slice(0, 8);
 
@@ -94,7 +94,7 @@ export function Footer() {
                       href={`/catalog/${category.slug}`}
                       className="text-sm text-footer-text/80 hover:text-white transition-colors"
                     >
-                      {category.name}
+                      {toSentenceCase(category.name)}
                     </Link>
                   </li>
                 ))

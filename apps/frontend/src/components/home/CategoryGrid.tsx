@@ -5,6 +5,7 @@ import { ImageWithPlaceholder } from '@/components/ui/ImageWithPlaceholder';
 import { ArrowRight } from 'lucide-react';
 import { useHomepageCategories } from '@/lib/api/hooks';
 import { Loading } from '@/components/ui/Loading';
+import { toSentenceCase } from '@/lib/utils';
 
 interface Category {
   id: number;
@@ -85,7 +86,7 @@ export function CategoryGrid() {
                 />
               </div>
               <span className="text-center text-sm flex items-center gap-4 font-medium text-text-secondary group-hover:text-primary transition-colors">
-                {category.name}
+                {toSentenceCase(category.name)}
                 <ArrowRight className="mt-1 h-3.5 w-3.5 text-primary opacity-70 transition-opacity group-hover:opacity-100" />
               </span>
             </Link>

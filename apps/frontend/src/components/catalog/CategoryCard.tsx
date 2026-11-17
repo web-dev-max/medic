@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-
+import { toSentenceCase } from '@/lib/utils';
 interface CategoryCardProps {
   id: number;
   name: string;
@@ -33,7 +33,7 @@ export function CategoryCard({ id: _id, name, slug, image, productCount }: Categ
 
       <div className="flex-1 min-w-0">
         <h3 className="text-sm font-semibold text-text-primary group-hover:text-primary transition-colors line-clamp-2">
-          {name}
+           {toSentenceCase(name)}
         </h3>
         {productCount !== undefined && (
           <p className="mt-0.5 text-xs text-text-muted">

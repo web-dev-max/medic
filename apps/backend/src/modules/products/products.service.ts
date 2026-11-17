@@ -36,10 +36,14 @@ export class ProductsService {
     const params: any[] = [];
 
     if (categoryId) {
+      // Include products in this category AND all subcategories (up to 3 levels deep)
+      // Level 1: Direct category
+      // Level 2: Direct subcategories
+      // Level 3: Sub-subcategories
       whereConditions.push(
-        'EXISTS (SELECT 1 FROM jos_virtuemart_product_categories pc WHERE pc.virtuemart_product_id = p.virtuemart_product_id AND pc.virtuemart_category_id = ?)',
+        'EXISTS (SELECT 1 FROM jos_virtuemart_product_categories pc WHERE pc.virtuemart_product_id = p.virtuemart_product_id AND (pc.virtuemart_category_id = ? OR pc.virtuemart_category_id IN (SELECT category_child_id FROM jos_virtuemart_category_categories WHERE category_parent_id = ?) OR pc.virtuemart_category_id IN (SELECT cc2.category_child_id FROM jos_virtuemart_category_categories cc1 INNER JOIN jos_virtuemart_category_categories cc2 ON cc2.category_parent_id = cc1.category_child_id WHERE cc1.category_parent_id = ?)))',
       );
-      params.push(categoryId);
+      params.push(categoryId, categoryId, categoryId);
     }
 
     if (brandId) {
@@ -64,7 +68,7 @@ export class ProductsService {
       // Case-insensitive search using MySQL LIKE with utf8mb4_unicode_ci collation
       const searchParam = `%${search}%`;
       whereConditions.push(`(
-        pr.product_name LIKE ? 
+        pr.product_name LIKE ?
         OR pr.product_s_desc LIKE ?
         OR pr.slug LIKE ?
       )`);
@@ -77,13 +81,13 @@ export class ProductsService {
       if (parts.length === 2) {
         const customFieldId = parts[0];
         const values = parts[1].split('|').filter(v => v.trim());
-        
+
         if (values.length > 0) {
           const placeholders = values.map(() => '?').join(',');
           whereConditions.push(
             'EXISTS (SELECT 1 FROM jos_virtuemart_product_customfields pcf JOIN jos_virtuemart_customs c ON pcf.virtuemart_custom_id = c.virtuemart_custom_id WHERE pcf.virtuemart_product_id = p.virtuemart_product_id AND c.virtuemart_custom_id = ? AND pcf.customfield_value IN (' + placeholders + '))',
           );
-          params.unshift(customFieldId, ...values);
+          params.push(customFieldId, ...values);
         }
       }
     }
@@ -92,7 +96,7 @@ export class ProductsService {
 
     // Main query — pure SQL with positional placeholders
     const mainSql = `
-      SELECT 
+      SELECT
         p.virtuemart_product_id AS id,
         pr.product_name AS name,
         pr.slug AS slug,
@@ -193,10 +197,10 @@ export class ProductsService {
 
   async findOne(slug: string) {
     console.log('[ProductsService.findOne] Searching for slug:', slug);
-    
+
     // Try 1: Exact slug match
     let productRaw = await this.dataSource.query(
-      `SELECT 
+      `SELECT
         p.virtuemart_product_id AS id,
         pr.product_name AS name,
         pr.slug AS slug,
@@ -222,7 +226,7 @@ export class ProductsService {
     // Try 2: Case-insensitive match (in case of encoding issues)
     console.log('[ProductsService.findOne] Trying case-insensitive match...');
     productRaw = await this.dataSource.query(
-      `SELECT 
+      `SELECT
         p.virtuemart_product_id AS id,
         pr.product_name AS name,
         pr.slug AS slug,
@@ -248,7 +252,7 @@ export class ProductsService {
     // Try 3: Search by product name (for Cyrillic slugs that might be stored differently)
     console.log('[ProductsService.findOne] Trying search by product name...');
     const nameMatch = await this.dataSource.query(
-      `SELECT 
+      `SELECT
         p.virtuemart_product_id AS id,
         pr.product_name AS name,
         pr.slug AS slug,
@@ -309,11 +313,15 @@ export class ProductsService {
   /**
    * Get category path for a product by slug
    */
-  async getProductCategoryPathFromSlug(slug: string): Promise<Array<{ id: number; name: string; slug: string }>> {
-    // First get the product ID - slug is in the Russian translation table
+  async getProductCategoryPathFromSlug(
+    slug: string,
+  ): Promise<Array<{ id: number; name: string; slug: string; isRoot: boolean }>> {
     const product = await this.dataSource.query(
-      `SELECT p.virtuemart_product_id AS id FROM jos_virtuemart_products p INNER JOIN jos_virtuemart_products_ru_ru pr ON p.virtuemart_product_id = pr.virtuemart_product_id WHERE pr.slug = ?`,
-      [slug]
+      `SELECT p.virtuemart_product_id AS id FROM jos_virtuemart_products p
+       INNER JOIN jos_virtuemart_products_ru_ru pr
+         ON p.virtuemart_product_id = pr.virtuemart_product_id
+       WHERE pr.slug = ?`,
+      [slug],
     );
 
     if (!product || !product[0]) {
@@ -327,7 +335,7 @@ export class ProductsService {
    * Get category hierarchy for a product
    * Excludes root categories (parent_id=0) — frontend shows "Каталог" instead.
    */
-  async getProductCategoryPath(productId: number): Promise<Array<{ id: number; name: string; slug: string }>> {
+  async getProductCategoryPath(productId: number): Promise<Array<{ id: number; name: string; slug: string; isRoot: boolean }>> {
     // Get ALL categories for this product (not just LIMIT 1)
     const categories: any = await this.dataSource.query(
       `SELECT c.virtuemart_category_id AS id, cr.category_name AS name, cr.slug AS slug
@@ -346,7 +354,7 @@ export class ProductsService {
     // Find the most specific category (deepest in hierarchy)
     // This is the category that has a parent or is most nested
     let primaryCategory = null;
-    
+
     // Prefer categories that are NOT root (have a parent)
     for (const cat of categories) {
       const parentRow: any = await this.dataSource.query(
@@ -356,13 +364,13 @@ export class ProductsService {
          LIMIT 1`,
         [cat.id]
       );
-      
+
       if (parentRow && parentRow[0] && parentRow[0].category_parent_id) {
         primaryCategory = cat;
         break;
       }
     }
-    
+
     // If all categories are root, use the first one
     if (!primaryCategory) {
       primaryCategory = categories[0];
@@ -418,24 +426,22 @@ export class ProductsService {
     }
 
     // Reverse to get root-to-leaf order, then filter out root categories
-    const path = fullPath.reverse().filter(cat => !cat.isRoot);
-
-    return path;
+    return fullPath.reverse();
   }
 
   private convertToAbsoluteUrl(relativePath: string): string {
     if (!relativePath) return '';
-    
+
     // If already a full URL (http/https), return as-is
     if (relativePath.startsWith('http')) {
       return relativePath;
     }
-    
+
     // If already starts with /uploads/, return as-is (local path)
     if (relativePath.startsWith('/uploads/')) {
       return relativePath;
     }
-    
+
     // Relative path - prepend base URL
     const cleanPath = relativePath.startsWith('/') ? relativePath : '/' + relativePath;
     return `${this.IMAGE_BASE_URL}${cleanPath}`;
@@ -445,37 +451,46 @@ export class ProductsService {
    * Get available custom field values for a category
    */
   async getCustomFieldValues(categoryId: number, customFieldId?: number) {
-    let sql = `
-      SELECT 
-        c.virtuemart_custom_id AS fieldId,
-        c.custom_title AS fieldTitle,
-        c.custom_element AS fieldElement,
-        pcf.customfield_value AS value,
-        COUNT(DISTINCT pcf.virtuemart_product_id) AS productCount
-      FROM jos_virtuemart_customs c
-      INNER JOIN jos_virtuemart_product_customfields pcf ON c.virtuemart_custom_id = pcf.virtuemart_custom_id
-      INNER JOIN jos_virtuemart_product_categories pc ON pcf.virtuemart_product_id = pc.virtuemart_product_id
-      WHERE c.published = 1
-        AND c.is_list >= 1
-        AND pc.virtuemart_category_id = ?
-    `;
-    
-    const params: any[] = [categoryId];
+     let sql = `
+       SELECT
+         c.virtuemart_custom_id AS fieldId,
+         c.custom_title AS fieldTitle,
+         c.custom_element AS fieldElement,
+         pcf.customfield_value AS value,
+         COUNT(DISTINCT pcf.virtuemart_product_id) AS productCount
+       FROM jos_virtuemart_customs c
+       INNER JOIN jos_virtuemart_product_customfields pcf ON c.virtuemart_custom_id = pcf.virtuemart_custom_id
+       INNER JOIN jos_virtuemart_product_categories pc ON pcf.virtuemart_product_id = pc.virtuemart_product_id
+       WHERE c.published = 1
+         AND c.is_list >= 1
+         AND (
+           pc.virtuemart_category_id = ?
+           OR pc.virtuemart_category_id IN (SELECT category_child_id FROM jos_virtuemart_category_categories WHERE category_parent_id = ?)
+           OR pc.virtuemart_category_id IN (
+             SELECT cc2.category_child_id
+             FROM jos_virtuemart_category_categories cc1
+             INNER JOIN jos_virtuemart_category_categories cc2 ON cc2.category_parent_id = cc1.category_child_id
+             WHERE cc1.category_parent_id = ?
+           )
+         )
+     `;
 
-    if (customFieldId) {
-      sql += ' AND c.virtuemart_custom_id = ?';
-      params.push(customFieldId);
-    }
+     const params: any[] = [categoryId, categoryId, categoryId];
 
-    sql += ` GROUP BY c.virtuemart_custom_id, c.custom_title, c.custom_element, pcf.customfield_value
-             HAVING productCount >= 1
-             ORDER BY c.virtuemart_custom_id, productCount DESC`;
+     if (customFieldId) {
+       sql += ' AND c.virtuemart_custom_id = ?';
+       params.push(customFieldId);
+     }
 
-    const results = await this.dataSource.query(sql, params);
+     sql += ` GROUP BY c.virtuemart_custom_id, c.custom_title, c.custom_element, pcf.customfield_value
+              HAVING productCount >= 1
+              ORDER BY c.virtuemart_custom_id, productCount DESC`;
+
+     const results = await this.dataSource.query(sql, params);
 
     // Group by field
     const fieldsMap = new Map<number, Array<{ fieldId: number; fieldTitle: string; fieldElement: string; value: string; productCount: number }>>();
-    
+
     results.forEach((row: any) => {
       const fieldId = Number(row.fieldId);
       const entry = {

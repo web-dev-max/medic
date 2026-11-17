@@ -42,7 +42,7 @@ export default async function CategoryPageRoute({ params, searchParams }: Catego
       <div className="section">
         <div className="container">
           <CategoryBreadcrumbs categorySlug={params.slug} />
-          
+
           <CatalogPage
             categoryId={categorized.id}
             categorySlug={params.slug}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
+import { toSentenceCase } from '@/lib/utils'; // Используем нашу утилиту
 
 export interface FilterState {
   minPrice: string;
@@ -12,6 +13,7 @@ export interface FilterState {
   sortBy: string;
   sortOrder: string;
   customFieldFilters: Record<string, string[]>;
+  subCategoryId: string; // 👈
 }
 
 interface CustomFieldFilter {
@@ -25,6 +27,7 @@ interface CustomFieldFilter {
 interface FiltersProps {
   brands?: Array<{ id: number; name: string }>;
   customFieldFilters?: CustomFieldFilter[][];
+  subCategories?: Array<{ id: number; name: string }>; // 👈
   filters: FilterState;
   onFilterChange: (filters: FilterState) => void;
 }
@@ -79,7 +82,7 @@ function CustomFieldFilterSection({
   );
 }
 
-export function Filters({ brands, customFieldFilters, filters, onFilterChange }: FiltersProps) {
+export function Filters({ brands, customFieldFilters, subCategories, filters, onFilterChange }: FiltersProps) {
   const updateFilter = (key: keyof FilterState, value: string) => {
     onFilterChange({ ...filters, [key]: value });
   };
@@ -102,12 +105,12 @@ export function Filters({ brands, customFieldFilters, filters, onFilterChange }:
       sortBy: 'createdAt',
       sortOrder: 'desc',
       customFieldFilters: {},
+      subCategoryId: '',
     });
   };
 
-  const hasActiveFilters = filters.minPrice || filters.maxPrice || filters.brandId || Object.keys(filters.customFieldFilters).length > 0;
+  const hasActiveFilters = filters.minPrice || filters.maxPrice || filters.brandId || filters.subCategoryId || Object.keys(filters.customFieldFilters).length > 0;
 
-  // Build custom field sections
   const customFieldSections = customFieldFilters?.map(fieldGroup => ({
     fieldId: fieldGroup[0].fieldId,
     fieldTitle: fieldGroup[0].fieldTitle,
@@ -130,6 +133,21 @@ export function Filters({ brands, customFieldFilters, filters, onFilterChange }:
           </button>
         )}
       </div>
+
+      {/* 👇 ПОДКАТЕГОРИИ */}
+      {subCategories && subCategories.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium text-text-primary">Подкатегории</h4>
+          <Select
+            value={filters.subCategoryId}
+            onChange={(e) => updateFilter('subCategoryId', e.target.value)}
+            options={[
+              { value: '', label: 'Все подкатегории' },
+              ...subCategories.map((c) => ({ value: String(c.id), label: toSentenceCase(c.name) })),
+            ]}
+          />
+        </div>
+      )}
 
       {/* Custom field filters */}
       {customFieldSections.length > 0 && (

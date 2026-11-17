@@ -3,9 +3,19 @@ import { apiClient } from './client';
 
 // Products
 export function useProducts(params?: Record<string, string | number | boolean>, options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
+  // Flatten params into queryKey as individual primitives for proper React Query caching
+  // Each param becomes ['products', 'paramName', 'paramValue']
+  const queryKey: unknown[] = ['products'];
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      queryKey.push(key, value);
+    });
+  }
+
   return useQuery({
-    queryKey: ['products', params],
+    queryKey,
     queryFn: () => apiClient.getProducts(params),
+    placeholderData: (previousData) => previousData, // Preserve previous data while fetching new page
     ...options,
   });
 }
@@ -135,6 +145,15 @@ export function useContent(slug: string, options?: Omit<UseQueryOptions, 'queryK
     queryKey: ['content', slug],
     queryFn: () => apiClient.getContent(slug),
     enabled: !!slug,
+    ...options,
+  });
+}
+
+export function useSubCategories(categoryId?: number, options?: Omit<UseQueryOptions, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['subcategories', categoryId],
+    queryFn: () => apiClient.getSubCategories(categoryId!),
+    enabled: !!categoryId,
     ...options,
   });
 }

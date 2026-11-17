@@ -32,6 +32,7 @@ export class CategoriesAdminService {
     const pageSize = query.pageSize || 50;
     const offset = (page - 1) * pageSize;
 
+    // общие условия для count- и main-запроса
     let whereConditions = '';
     const params: any[] = [];
 
@@ -40,40 +41,63 @@ export class CategoriesAdminService {
       params.push(`%${query.search}%`);
     }
 
-    // Get total count
+    // 👇 ключевой фильтр: только категории верхнего уровня
+    whereConditions += `
+      AND NOT EXISTS (
+        SELECT 1
+        FROM jos_virtuemart_category_categories cc2
+        WHERE cc2.category_child_id = c.virtuemart_category_id
+          AND cc2.category_parent_id > 0
+      )
+    `;
+
+    // ещё полезно отсеять неопубликованные (593 «Максим», 130 «Статуэтки» и т.п.)
+    whereConditions += ' AND c.published = 1';
+
+    // --- count ---
     const countQuery = `
-      SELECT COUNT(DISTINCT c.virtuemart_category_id) as total
+      SELECT COUNT(DISTINCT c.virtuemart_category_id) AS total
       FROM jos_virtuemart_categories c
-      INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
+      INNER JOIN jos_virtuemart_categories_ru_ru cr
+        ON c.virtuemart_category_id = cr.virtuemart_category_id
       WHERE 1=1 ${whereConditions}
     `;
     const [countRows] = await this.dataSource.query(countQuery, params);
     const total = parseInt(countRows.total);
 
-    // Get categories with parent info
+    // --- data ---
     const categoriesQuery = `
       SELECT
-        c.virtuemart_category_id as id,
+        c.virtuemart_category_id AS id,
         c.category_code,
-        cr.category_name as name,
+        cr.category_name AS name,
         cr.slug,
-        cr.category_description as description,
-        cr.metadesc as seoDescription,
-        cr.customtitle as seoTitle,
-        COALESCE(cc.category_parent_id, 0) as parentId,
+        cr.category_description AS description,
+        cr.metadesc AS seoDescription,
+        cr.customtitle AS seoTitle,
+        COALESCE(cc.category_parent_id, 0) AS parentId,
         c.published
       FROM jos_virtuemart_categories c
-      INNER JOIN jos_virtuemart_categories_ru_ru cr ON c.virtuemart_category_id = cr.virtuemart_category_id
-      LEFT JOIN jos_virtuemart_category_categories cc ON c.virtuemart_category_id = cc.category_child_id
-      WHERE 1=1 ${whereConditions}
-      GROUP BY c.virtuemart_category_id, c.category_code, cr.category_name, cr.slug, cr.category_description,
-               cr.metadesc, cr.customtitle, cc.category_parent_id, c.published
+      INNER JOIN jos_virtuemart_categories_ru_ru cr
+        ON c.virtuemart_category_id = cr.virtuemart_category_id
+      LEFT JOIN jos_virtuemart_category_categories cc
+        ON c.virtuemart_category_id = cc.category_child_id
+      WHERE 1=1
+      ${whereConditions}
+      AND EXISTS (
+        SELECT 1 FROM jos_virtuemart_product_categories pc
+        WHERE pc.virtuemart_category_id = c.virtuemart_category_id
+      )
+      GROUP BY c.virtuemart_category_id, c.category_code, cr.category_name, cr.slug,
+               cr.category_description, cr.metadesc, cr.customtitle,
+               cc.category_parent_id, c.published
       ORDER BY c.ordering ASC
       LIMIT ? OFFSET ?
     `;
 
-    const categories = await this.dataSource.query(categoriesQuery, [...params, pageSize, offset]);
-
+    const categories = await this.dataSource.query(categoriesQuery, [
+      ...params, pageSize, offset,
+    ]);
     // Fetch images for all categories
     const categoryIds = categories.map((c: any) => c.id).filter(Boolean);
     const imagesMap = new Map<number, string>();
@@ -181,7 +205,6 @@ export class CategoriesAdminService {
   async create(data: AdminCreateCategoryDto) {
     return this.dataSource.transaction(async (manager) => {
       try {
-        // Check if categoryCode already exists
         const existingCode = await manager.query(
           `SELECT virtuemart_category_id FROM jos_virtuemart_categories WHERE category_code = ?`,
           [data.categoryCode]
@@ -191,27 +214,30 @@ export class CategoriesAdminService {
           throw new BadRequestException(`Категория с номером "${data.categoryCode}" уже существует`);
         }
 
+        // Вычисляем максимальный ordering, чтобы поставить категорию в конец
+        const maxOrderingRow = await manager.query(`SELECT MAX(ordering) as maxOrder FROM jos_virtuemart_categories`);
+        const newOrdering = (maxOrderingRow[0]?.maxOrder || 0) + 1;
+
         // Insert into jos_virtuemart_categories
         const categoryResult = await manager.query(
           `INSERT INTO jos_virtuemart_categories (
-            virtuemart_vendor_id, category_code, published, shared,
+            virtuemart_vendor_id, category_code, published, shared, ordering,
             created_on, created_by, modified_on, modified_by, locked_on, locked_by
-          ) VALUES (1, ?, ?, 0,
+          ) VALUES (1, ?, ?, 0, ?,
             NOW(), 0, NOW(), 0,
             '1970-01-01 00:00:00', 0
           )`,
           [
             data.categoryCode,
             data.published !== false ? 1 : 0,
+            newOrdering,
           ]
         );
 
         const categoryId = categoryResult.insertId;
 
-        // Auto-generate slug from name if not provided
         let slug = data.slug;
         if (!slug || slug.trim() === '') {
-          // Convert Russian name to URL-friendly slug
           slug = data.name
             .toLowerCase()
             .replace(/[а-яё]/g, (char) => {
@@ -229,7 +255,6 @@ export class CategoriesAdminService {
             .substring(0, 192);
         }
 
-        // Insert into jos_virtuemart_categories_ru_ru
         await manager.query(
           `INSERT INTO jos_virtuemart_categories_ru_ru (
             virtuemart_category_id, category_name, slug, category_description,
@@ -246,7 +271,6 @@ export class CategoriesAdminService {
           ]
         );
 
-        // Insert parent relation if specified
         if (data.parentId && data.parentId !== 0) {
           await manager.query(
             `INSERT INTO jos_virtuemart_category_categories (category_parent_id, category_child_id, ordering) VALUES (?, ?, 0)`,

@@ -16,6 +16,7 @@ interface CustomFieldFilter {
 interface MobileFilterDrawerProps {
   brands?: Array<{ id: number; name: string }>;
   customFieldFilters?: CustomFieldFilter[][];
+  subCategories?: Array<{ id: number; name: string }>; // 👈
   filters: FilterState;
   onFilterChange: (filters: FilterState) => void;
 }
@@ -23,6 +24,7 @@ interface MobileFilterDrawerProps {
 export function MobileFilterDrawer({
   brands,
   customFieldFilters,
+  subCategories, // 👈
   filters,
   onFilterChange,
 }: MobileFilterDrawerProps) {
@@ -30,7 +32,6 @@ export function MobileFilterDrawer({
 
   return (
     <>
-      {/* Floating filter button - visible only on mobile */}
       <button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:bg-primary-dark hover:shadow-xl md:hidden"
@@ -40,7 +41,6 @@ export function MobileFilterDrawer({
         <span>Фильтры</span>
       </button>
 
-      {/* Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 md:hidden"
@@ -48,14 +48,12 @@ export function MobileFilterDrawer({
         />
       )}
 
-      {/* Drawer panel */}
       <div
         className={`fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-white shadow-2xl transition-transform duration-300 ease-in-out md:hidden ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="flex h-full flex-col">
-          {/* Header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-6">
             <h2 className="text-lg font-semibold text-text-primary">Фильтры</h2>
             <button
@@ -67,17 +65,16 @@ export function MobileFilterDrawer({
             </button>
           </div>
 
-          {/* Filters content */}
           <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
             <Filters
               brands={brands}
               customFieldFilters={customFieldFilters}
+              subCategories={subCategories} // 👈
               filters={filters}
               onFilterChange={onFilterChange}
             />
           </div>
 
-          {/* Sticky footer with close button */}
           <div className="border-t border-border bg-white px-4 py-4 sm:px-6">
             <button
               onClick={() => setIsOpen(false)}
