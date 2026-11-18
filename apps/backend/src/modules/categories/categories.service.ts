@@ -99,7 +99,6 @@ export class CategoriesService {
         'cr.customtitle AS seoTitle',
         'c.published AS published',
         'c.ordering AS sortOrder',
-        // берём одну картинку на категорию через коррелированный подзапрос
         `(
           SELECT med.file_url
           FROM jos_virtuemart_category_medias cm

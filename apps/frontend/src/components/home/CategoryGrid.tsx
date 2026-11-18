@@ -33,7 +33,7 @@ export function CategoryGrid() {
     );
   }
 
-  if (error || (categories as unknown[]).length === 0) {
+  if (error || (categories as unknown[])?.length === 0) {
     return (
       <section className="section">
         <div className="container">

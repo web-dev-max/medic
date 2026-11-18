@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Category {
   id: number;
   name: string;
   slug: string;
   description: string;
-  categoryCode: number;
+  categoryCode: string;
   sortOrder: number;
   published: number;
   image: string;
@@ -28,49 +29,50 @@ interface CategoriesListProps {
 
 export default function CategoriesList({ categories }: CategoriesListProps) {
   const [search, setSearch] = useState('');
+  const router = useRouter();
 
   const filteredCategories = categories.items.filter(cat =>
     cat.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Вы уверены, что хотите удалить эту категорию?')) {
-      return;
-    }
+     if (!confirm('Вы уверены, что хотите снять эту категорию с публикации (отправить в черновик)?')) {
+       return;
+     }
 
-    try {
-      const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
+     try {
+       const token = document.cookie.match(/admin_token=([^;]+)/)?.[1];
 
-      if (!token) {
-        alert('Не авторизован. Пожалуйста, войдите в систему.');
-        window.location.href = '/admin/login';
-        return;
-      }
+       if (!token) {
+         alert('Не авторизован. Пожалуйста, войдите в систему.');
+         window.location.href = '/admin/login';
+         return;
+       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/categories/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/categories/${id}`, {
+         method: 'DELETE',
+         headers: {
+           'Authorization': `Bearer ${token}`,
+         },
+       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          alert('Не авторизован. Пожалуйста, войдите в систему.');
-          window.location.href = '/admin/login';
-          return;
-        }
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to delete category');
-      }
+       if (!response.ok) {
+         if (response.status === 401) {
+           alert('Не авторизован. Пожалуйста, войдите в систему.');
+           window.location.href = '/admin/login';
+           return;
+         }
+         const data = await response.json();
+         throw new Error(data.message || 'Failed to unpublish category');
+       }
 
-      window.location.reload();
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Не удалось удалить категорию';
-      alert(errorMessage);
-    }
-  };
+       router.refresh();
+     } catch (error) {
+       console.error('Error unpublishing category:', error);
+       const errorMessage = error instanceof Error ? error.message : 'Не удалось снять категорию с публикации';
+       alert(errorMessage);
+     }
+   };
 
   return (
     <div className="p-8">
@@ -123,7 +125,7 @@ export default function CategoriesList({ categories }: CategoriesListProps) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{category.slug}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {category.categoryCode && category.categoryCode !== 0 ? category.categoryCode : '—'}
+                    {category.categoryCode && category.categoryCode !== '0' ? category.categoryCode : '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -138,15 +140,20 @@ export default function CategoriesList({ categories }: CategoriesListProps) {
                     <Link href={`/admin/categories/${category.id}/edit`} className="text-blue-600 hover:text-blue-900 mr-4">
                       Редактировать
                     </Link>
-                    <button onClick={() => handleDelete(category.id)} className="text-red-600 hover:text-red-900">
-                      Удалить
-                    </button>
+
+                    {/* 👇 Показываем кнопку только если категория активна (published === 1) */}
+                    {category.published === 1 && (
+                      <button onClick={() => handleDelete(category.id)} className="text-red-600 hover:text-red-900">
+                        Снять с публикации
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                {/* 👇 Исправили colSpan на 5 */}
+                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                   Категории не найдены
                 </td>
               </tr>

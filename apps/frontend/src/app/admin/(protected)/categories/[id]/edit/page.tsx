@@ -24,8 +24,6 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
     categoryCode: '',
     slug: '',
     description: '',
-    seoTitle: '',
-    seoDescription: '',
     published: true,
   });
 
@@ -57,14 +55,11 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
 
       const data = await response.json();
       setCategory(data);
-      console.log(data);
       setFormData({
         name: data.name || '',
         categoryCode: data.category_code || '',
         slug: data.slug || '',
         description: data.description || '',
-        seoTitle: data.seoTitle || '',
-        seoDescription: data.seoDescription || '',
         published: data.published === 1,
       });
     } catch (err) {
@@ -149,6 +144,7 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
       }
 
       router.push('/admin/categories');
+      router.refresh();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Не удалось обновить категорию';
       setErrors({ form: errorMessage });
@@ -253,34 +249,6 @@ export default function EditCategoryPage({ params }: { params: { id: string } })
             onChange={handleChange}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              SEO заголовок
-            </label>
-            <input
-              type="text"
-              name="seoTitle"
-              value={formData.seoTitle}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              SEO описание
-            </label>
-            <textarea
-              name="seoDescription"
-              rows={3}
-              value={formData.seoDescription}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
         </div>
 
         <div className="flex items-center">

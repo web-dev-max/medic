@@ -11,8 +11,6 @@ export default function NewCategoryPage() {
     categoryCode: '',
     slug: '',
     description: '',
-    seoTitle: '',
-    seoDescription: '',
     published: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -184,34 +182,6 @@ export default function NewCategoryPage() {
             onChange={handleChange}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              SEO заголовок
-            </label>
-            <input
-              type="text"
-              name="seoTitle"
-              value={formData.seoTitle}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              SEO описание
-            </label>
-            <textarea
-              name="seoDescription"
-              rows={3}
-              value={formData.seoDescription}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
         </div>
 
         <div className="flex items-center">
